@@ -1,5 +1,5 @@
 
-### konsoleprofile command-line tool
-install(PROGRAMS konsoleprofile DESTINATION ${KDE_INSTALL_BINDIR})
+### konsole-plus-profile command-line tool
+install(PROGRAMS konsole-plus-profile DESTINATION ${KDE_INSTALL_BINDIR})
 
 add_subdirectory( uni2characterwidth )

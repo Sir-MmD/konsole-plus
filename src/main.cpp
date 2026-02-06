@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
 
     KLocalizedString::setApplicationDomain("konsole");
 
-    KAboutData about(QStringLiteral("konsole"),
+    KAboutData about(QStringLiteral("konsole-plus"),
                      i18nc("@title", "Konsole Plus"),
                      QStringLiteral(KONSOLE_VERSION),
                      i18nc("@title", "Enhanced terminal emulator"),

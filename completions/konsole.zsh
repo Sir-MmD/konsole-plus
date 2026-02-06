@@ -1,4 +1,4 @@
-#compdef konsole konsoleprofile
+#compdef konsole-plus konsole-plus-profile
 
 # SPDX-FileCopyrightText: 2022 ivan tkachenko <me@ratijas.tk>
 #
@@ -8,7 +8,7 @@ function _konsole_profiles() {
   local -a profiles profiles_descr profiles_comp
 
   # Technically, built-in profile's "path" is `FALLBACK/`. Let's suggest it just for completeness.
-  profiles=( ${(f)"$(_call_program konsole-profiles konsole --list-profiles)"} )
+  profiles=( ${(f)"$(_call_program konsole-profiles konsole-plus --list-profiles)"} )
   profiles_descr=( $profiles Built-in )
   profiles_comp=( $profiles FALLBACK/ )
 
@@ -21,7 +21,7 @@ function _konsole_profile_properties() {
   local property prop_type ret=1
 
   # first split by lines, then split in `key : type` pairs, and stuff that into an associative array
-  properties=( ${(@s. : .)${(f)"$(_call_program konsole-properties-list konsole --list-profile-properties)"}} )
+  properties=( ${(@s. : .)${(f)"$(_call_program konsole-properties-list konsole-plus --list-profile-properties)"}} )
   prop_names=( ${(@k)properties} )
   prop_types=( ${(@v)properties} )
 
@@ -53,11 +53,11 @@ function _konsole_profile_properties() {
 # Note: '-' denotes mutually exclusive sets of options. '-e' trick was copied from _xterm completions.
 
 case "$service" in
-  (konsoleprofile)
+  (konsole-plus-profile)
     _arguments \
       '1:properties:_konsole_profile_properties'
     ;;
-  (konsole)
+  (konsole-plus)
     _arguments -s \
       '(- *)'{-h,--help}'[Displays help on commandline options]' \
       '(- *)'{-v,--version}'[Displays version information]' \

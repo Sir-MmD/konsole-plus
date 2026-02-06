@@ -13,7 +13,7 @@ ecm_qt_declare_logging_category(
     EXPORT KONSOLE
 )
 
-kcoreaddons_add_plugin(konsole_sshmanagerplugin
+kcoreaddons_add_plugin(konsole_plus_sshmanagerplugin
 SOURCES
     sshmanagerplugin.cpp
     sshmanagerpluginwidget.cpp
@@ -23,11 +23,11 @@ SOURCES
     sshcryptohelper.cpp
     ${extra_sshplugin_SRCS}
 INSTALL_NAMESPACE
-    "konsoleplugins"
+    "konsole-plus-plugins"
 )
 
 configure_file(konsole_sshmanager.in.json konsole_sshmanager.json)
-target_link_libraries(konsole_sshmanagerplugin
+target_link_libraries(konsole_plus_sshmanagerplugin
     konsoleprivate
     konsoleapp
     OpenSSL::Crypto

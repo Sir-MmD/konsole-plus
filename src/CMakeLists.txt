@@ -326,6 +326,7 @@ target_link_libraries(konsoleprivate
 )
 
 set_target_properties(konsoleprivate PROPERTIES
+    OUTPUT_NAME konsole-plus-private
     VERSION ${RELEASE_SERVICE_VERSION}
 )
 
@@ -362,6 +363,7 @@ target_link_libraries(konsoleapp
 )
 
 set_target_properties(konsoleapp PROPERTIES
+    OUTPUT_NAME konsole-plus-app
     VERSION ${RELEASE_SERVICE_VERSION}
 )
 
@@ -412,7 +414,7 @@ set(konsolepart_PART_SRCS Part.cpp
 
 add_library(konsolepart MODULE ${konsolepart_PART_SRCS})
 generate_export_header(konsolepart BASE_NAME konsole)
-set_target_properties(konsolepart PROPERTIES DEFINE_SYMBOL KONSOLE_PART)
+set_target_properties(konsolepart PROPERTIES OUTPUT_NAME konsole-plus-part DEFINE_SYMBOL KONSOLE_PART)
 target_link_libraries(konsolepart
     KF6::Parts
     KF6::XmlGui

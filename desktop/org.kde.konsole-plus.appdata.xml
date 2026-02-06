@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <component type="desktop-application">
-  <id>org.kde.konsole.desktop</id>
+  <id>org.kde.konsole-plus.desktop</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-2.0+</project_license>
-  <name>Konsole</name>
+  <name>Konsole Plus</name>
   <name xml:lang="ar">كونسول</name>
   <name xml:lang="ast">Konsole</name>
   <name xml:lang="az">Konsole</name>
@@ -581,7 +581,7 @@
   </screenshots>
   <project_group>KDE</project_group>
   <provides>
-    <binary>konsole</binary>
+    <binary>konsole-plus</binary>
   </provides>
   <update_contact>konsole-devel_AT_kde.org</update_contact>
   <releases>

@@ -146,7 +146,7 @@ endif()
 
 ecm_qt_install_logging_categories(
     EXPORT KONSOLE
-    FILE konsole.categories
+    FILE konsole-plus.categories
     DESTINATION "${KDE_INSTALL_LOGGINGCATEGORIESDIR}"
 )
 
@@ -156,7 +156,7 @@ if(KF6DocTools_FOUND)
 endif()
 
 if(ECM_VERSION VERSION_GREATER_EQUAL 5.101.0)
-  install(FILES completions/konsole.zsh RENAME _konsole DESTINATION ${KDE_INSTALL_ZSHAUTOCOMPLETEDIR})
+  install(FILES completions/konsole.zsh RENAME _konsole-plus DESTINATION ${KDE_INSTALL_ZSHAUTOCOMPLETEDIR})
 endif()
 
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)

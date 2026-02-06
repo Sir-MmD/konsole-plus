@@ -1,6 +1,6 @@
 [Global]
 IconName=utilities-terminal
-DesktopEntry=org.kde.konsole
+DesktopEntry=org.kde.konsole-plus
 Comment=Konsole
 Comment[af]=Konsole
 Comment[ar]=كونسول
@@ -476,7 +476,7 @@ Name[sr@ijekavian]=Активност у надгледаној сесији
 Name[sr@ijekavianlatin]=Aktivnost u nadgledanoj sesiji
 Name[sr@latin]=Aktivnost u nadgledanoj sesiji
 Name[sv]=Aktivitet i bevakad session
-Name[ta]=கண்காணிக்கப்படும் அமர்வில் 
+Name[ta]=கண்காணிக்கப்படும் அமர்வில்
 Name[te]=మానిటర్‌చేస్తున్న సెషన్‌నందలి క్రియాశీలత
 Name[tg]=Фаъолият дар сеанси идорашаванда
 Name[th]=มีกิจกรรมในวาระงานที่เฝ้าดูอยู่
@@ -679,7 +679,7 @@ Action=Popup
 
 [Event/Silence]
 Name=Silence in Monitored Session
-Name[af]=Stilte in gemonitorde sessie 
+Name[af]=Stilte in gemonitorde sessie
 Name[ar]=لا نشاط في الجلسة المُراقبة
 Name[az]=İzlənən sesiyada sakitlik
 Name[be]=Бяздзейнасць у сеансе, які адсочваецца
@@ -1038,7 +1038,7 @@ Action=Popup
 
 [Event/Finished]
 Name=Session Finished With Non-Zero Status
-Name[af]=Sessie het geëindig met nie-zero status 
+Name[af]=Sessie het geëindig met nie-zero status
 Name[ar]=انتهت الجلسة بحالة غير الصِفر
 Name[az]=Sessiya sıfır olmayan statusla başa çatdı
 Name[be]=Сеанс завершаны з ненулявым статусам
