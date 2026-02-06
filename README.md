@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="data/icons/128-apps-konsole-plus.png" alt="Konsole Plus" />
+  <img src="data/icons/sc-apps-konsole-plus.svg" alt="Konsole Plus" width="128" />
 </p>
 
 <h1 align="center">Konsole Plus</h1>

@@ -123,7 +123,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include_directories(${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR})
 
-file(GLOB ICONS_SRCS "data/icons/*.png")
+file(GLOB ICONS_SRCS "data/icons/*.png" "data/icons/*.svg")
 
 option(ENABLE_PLUGIN_SSHMANAGER "Build the SSHManager plugin" ON)
 option(ENABLE_PLUGIN_QUICKCOMMANDS "Build the Quick Commands plugin" ON)
@@ -137,12 +137,7 @@ endif()
 
 add_subdirectory( tools )
 
-# Conditionally install icons for Linux as they may not be provided by the user theme
-option(INSTALL_ICONS "Install icons" OFF)
-if(INSTALL_ICONS)
-    include(ECMInstallIcons)
-    ecm_install_icons( ICONS ${ICONS_SRCS} DESTINATION ${KDE_INSTALL_ICONDIR} )
-endif()
+ecm_install_icons( ICONS ${ICONS_SRCS} DESTINATION ${KDE_INSTALL_ICONDIR} )
 
 ecm_qt_install_logging_categories(
     EXPORT KONSOLE
