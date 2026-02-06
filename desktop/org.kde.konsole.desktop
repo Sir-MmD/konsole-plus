@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-TryExec=konsole
-Exec=konsole
+TryExec=konsole-plus
+Exec=konsole-plus
 Icon=utilities-terminal
 Categories=Qt;KDE;System;TerminalEmulator;
 Actions=NewWindow;NewTab;
@@ -9,7 +9,7 @@ X-DocPath=konsole/index.html
 StartupNotify=true
 X-KDE-AuthorizeAction=shell_access
 X-KDE-Shortcuts=Ctrl+Alt+T
-StartupWMClass=konsole
+StartupWMClass=konsole-plus
 Keywords=terminal;console;script;run;execute;command;command-line;commandline;cli;bash;sh;shell;zsh;cmd;command prompt
 Keywords[ar]=طرفية;كونسول;سكربت;شغل;نفذ;أوامر;سطر-الأوامر;سطر الأوامر;cli;باش;صدفة;شل;zsh
 Keywords[az]=terminal;konsol;skript;başlatmaq;icra;əmr;əmr-sətri;əmrsətri;müştəri;bash;sh;qabıq;zsh;cmd;əmr-lövhəsi
@@ -56,7 +56,7 @@ Keywords[uk]=terminal;console;script;run;execute;command;command-line;commandlin
 Keywords[zh_CN]=terminal;console;script;run;execute;command;command-line;commandline;cli;bash;sh;shell;zsh;终端;控制台;脚本;执行;运行;命令;命令行;命令行界面;外壳;命令行提示;zhongduan;kongzhitai;jiaoben;zhixing;yunxing;mingling;minglinghang;minglinghangjiemian;minglinghangtishi
 Keywords[zh_TW]=terminal;console;script;run;execute;command;command-line;commandline;cli;bash;sh;shell;zsh;cmd;command prompt
 
-Name=Konsole
+Name=Konsole Plus
 Name[af]=Konsole
 Name[ar]=كونسول
 Name[as]=Konsole
@@ -351,7 +351,7 @@ Name[uk]=Відкрити нове вікно
 Name[zh_CN]=打开新窗口
 Name[zh_TW]=開啟新視窗
 Icon=window-new
-Exec=konsole
+Exec=konsole-plus
 
 [Desktop Action NewTab]
 Name=Open a New Tab
@@ -409,4 +409,4 @@ Name[uk]=Відкрити нову вкладку
 Name[zh_CN]=打开新的标签页
 Name[zh_TW]=開啟新分頁
 Icon=tab-new
-Exec=konsole --new-tab
+Exec=konsole-plus --new-tab

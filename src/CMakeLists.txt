@@ -375,6 +375,7 @@ set(konsole_SRCS
 ecm_add_app_icon(ICONS_SOURCES ICONS ${ICONS_SRCS})
 
 add_executable(konsole ${konsole_SRCS} ${ICONS_SOURCES})
+set_target_properties(konsole PROPERTIES OUTPUT_NAME konsole-plus)
 target_link_libraries(konsole
   konsoleprivate
   konsoleapp
@@ -389,11 +390,11 @@ target_link_libraries(konsole
 
 if(APPLE)
     set_target_properties(konsole PROPERTIES
-        MACOSX_BUNDLE_GUI_IDENTIFIER "org.kde.konsole"
-        MACOSX_BUNDLE_BUNDLE_NAME "Konsole"
-        MACOSX_BUNDLE_DISPLAY_NAME "Konsole"
-        MACOSX_BUNDLE_INFO_STRING "Konsole, the KDE terminal emulator"
-        MACOSX_BUNDLE_LONG_VERSION_STRING "Konsole ${RELEASE_SERVICE_VERSION}"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "org.kde.konsole-plus"
+        MACOSX_BUNDLE_BUNDLE_NAME "Konsole Plus"
+        MACOSX_BUNDLE_DISPLAY_NAME "Konsole Plus"
+        MACOSX_BUNDLE_INFO_STRING "Konsole Plus, enhanced KDE terminal emulator"
+        MACOSX_BUNDLE_LONG_VERSION_STRING "Konsole Plus ${RELEASE_SERVICE_VERSION}"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${RELEASE_SERVICE_VERSION_MAJOR}.${RELEASE_SERVICE_VERSION_MINOR}"
         MACOSX_BUNDLE_BUNDLE_VERSION "${RELEASE_SERVICE_VERSION}"
         MACOSX_BUNDLE_COPYRIGHT "1997-2022 The Konsole Developers")
@@ -435,4 +436,3 @@ if(COVERAGE_GENERATE_HTML)
     COMMAND ${GENHTML} --ignore-errors source --demangle-cpp -o coverage coverage.info
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 endif()
-

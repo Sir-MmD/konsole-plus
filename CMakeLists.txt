@@ -1,4 +1,4 @@
-# Konsole project
+# Konsole Plus project
 
 # KDE Application Version, managed by release script
 set(RELEASE_SERVICE_VERSION_MAJOR "26")
@@ -17,7 +17,7 @@ set(QT_MIN_VERSION "6.5.0")
 set(KF6_DEP_VERSION "6.0.0")
 
 # Release script will create bugzilla versions
-project(konsole VERSION ${RELEASE_SERVICE_VERSION})
+project(konsole-plus VERSION ${RELEASE_SERVICE_VERSION})
 
 find_package(ECM ${KF6_DEP_VERSION} REQUIRED NO_MODULE)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ECM_MODULE_PATH})
