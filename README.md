@@ -33,12 +33,12 @@ Install dependencies for your distro, then build and install.
 ```bash
 sudo pacman -S --needed base-devel cmake extra-cmake-modules \
   qt6-base qt6-multimedia \
-  kf6-kbookmarks kf6-kconfig kf6-kconfigwidgets kf6-kcoreaddons \
-  kf6-kcrash kf6-kdbusaddons kf6-kglobalaccel kf6-kguiaddons \
-  kf6-ki18n kf6-kiconthemes kf6-kio kf6-knewstuff \
-  kf6-knotifications kf6-knotifyconfig kf6-kparts kf6-kpty \
-  kf6-kservice kf6-ktextwidgets kf6-kwidgetsaddons \
-  kf6-kwindowsystem kf6-kxmlgui kf6-kdoctools \
+  kbookmarks kconfig kconfigwidgets kcoreaddons \
+  kcrash kdbusaddons kglobalaccel kguiaddons \
+  ki18n kiconthemes kio knewstuff \
+  knotifications knotifyconfig kparts kpty \
+  kservice ktextwidgets kwidgetsaddons \
+  kwindowsystem kxmlgui kdoctools \
   icu zlib openssl libxkbcommon \
   openssh sshpass rclone fuse3
 ```
