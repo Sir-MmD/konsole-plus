@@ -1,71 +1,31 @@
-# Konsole Plus
+<p align="center">
+  <img src="data/icons/128-apps-konsole-plus.png" alt="Konsole Plus" />
+</p>
 
-A fork of [KDE Konsole](https://konsole.kde.org) with an enhanced SSH Manager plugin.
+<h1 align="center">Konsole Plus</h1>
 
-## What's New
+<p align="center">
+  A fork of <a href="https://konsole.kde.org">KDE Konsole</a> with an enhanced SSH Manager.
+  <br />
+  Installs alongside the original Konsole without conflicts.
+</p>
 
-This fork improves the built-in SSH Manager plugin with the following features:
+---
 
-### SSH Connection Improvements
-- **Clean connection experience** -- SSH commands (sshpass, etc.) are hidden from the terminal; only a "Connecting to ..." message is shown
-- **Connection status** -- Green **OK** on successful connection, red **FAILED** on failure
-- **Smart tab naming** -- Tabs are automatically named after the SSH profile identifier or hostname
-- **Safe reconnection** -- Clicking an SSH profile while already connected opens a new tab instead of crashing
-- **Mount deduplication** -- Multiple tabs to the same host share a single rclone mount with automatic cleanup
+## Features
 
-### SSH Key Passphrase Support
-- New "Key Passphrase" field in the SSH profile editor for encrypted private keys
+- **Clean SSH connections** -- commands are hidden from the terminal, showing only a "Connecting to ..." message with green OK / red FAILED status
+- **Smart tab naming** -- tabs are automatically named after the SSH profile
+- **Safe reconnection** -- opening a profile while already connected spawns a new tab
+- **Remote filesystem mounting** -- automatically mount remote filesystems via rclone when connecting, with mount deduplication across tabs
+- **SSH key passphrase support** -- dedicated field for encrypted private keys
+- **Password encryption** -- AES-256-GCM encryption for all stored credentials with a master password (PBKDF2, 100k iterations)
+- **Import / Export** -- save and load SSH profiles as JSON, optionally encrypted
+- **Multi-select** -- Ctrl+click / Shift+click to bulk-connect or bulk-delete profiles
 
-### Password Encryption at Rest
-- Encrypt stored passwords, key passphrases, and proxy passwords using **AES-256-GCM**
-- Master password with **PBKDF2-HMAC-SHA256** key derivation (100,000 iterations)
-- Lazy unlock -- master password is only prompted when you actually perform an operation (connect, edit, export)
-- Backwards compatible with existing plaintext configurations
+## Build
 
-### Import / Export
-- Export all SSH profiles to a **JSON** file
-- Optionally encrypt the export with a separate passphrase
-- Import profiles from JSON files (encrypted or plain) and merge into the current configuration
-
-### Multi-Select
-- **Ctrl+click** and **Shift+click** to select multiple SSH profiles
-- Bulk delete selected entries
-- Double-click with multiple selection connects to all selected profiles
-
-## Runtime Dependencies
-
-The SSH Manager plugin requires these tools to be installed on your system:
-
-| Tool | Required | Purpose |
-|------|----------|---------|
-| `openssh` | Yes | SSH client (`ssh` command) |
-| `sshpass` | For password auth | Provides passwords to SSH non-interactively |
-| `rclone` | For remote mount | Remote filesystem mounting via SFTP |
-| `fuse2` / `fuse3` | For remote mount | FUSE support for rclone mount |
-
-### Arch Linux
-
-```bash
-sudo pacman -S openssh sshpass rclone fuse2
-```
-
-### Fedora / RHEL / CentOS
-
-```bash
-sudo dnf install openssh-clients sshpass rclone fuse
-```
-
-### Debian / Ubuntu
-
-```bash
-sudo apt install openssh-client sshpass rclone fuse3
-```
-
-## Building from Source
-
-### Step 1: Install build dependencies
-
-Pick your distro and run the command to install everything needed for compilation.
+Install dependencies for your distro, then build and install.
 
 <details>
 <summary>Arch Linux</summary>
@@ -77,9 +37,8 @@ sudo pacman -S base-devel cmake extra-cmake-modules qt6-base qt6-multimedia \
   kf6-knotifyconfig kf6-kparts kf6-kservice kf6-ktextwidgets \
   kf6-kwidgetsaddons kf6-kwindowsystem kf6-kxmlgui kf6-kbookmarks \
   kf6-kpty kf6-kdbusaddons kf6-kglobalaccel kf6-kdoctools \
-  openssl icu
+  openssl icu openssh sshpass rclone fuse2
 ```
-
 </details>
 
 <details>
@@ -95,9 +54,9 @@ sudo dnf install cmake extra-cmake-modules gcc-c++ \
   kf6-kservice-devel kf6-ktextwidgets-devel kf6-kwidgetsaddons-devel \
   kf6-kwindowsystem-devel kf6-kxmlgui-devel kf6-kbookmarks-devel \
   kf6-kpty-devel kf6-kdbusaddons-devel kf6-kglobalaccel-devel \
-  kf6-kdoctools-devel openssl-devel libicu-devel
+  kf6-kdoctools-devel openssl-devel libicu-devel \
+  openssh-clients sshpass rclone fuse
 ```
-
 </details>
 
 <details>
@@ -113,37 +72,25 @@ sudo apt install cmake extra-cmake-modules g++ gettext \
   libkf6service-dev libkf6textwidgets-dev libkf6widgetsaddons-dev \
   libkf6windowsystem-dev libkf6xmlgui-dev libkf6bookmarks-dev \
   libkf6pty-dev libkf6dbusaddons-dev libkf6globalaccel-dev \
-  libkf6doctools-dev libssl-dev libicu-dev
+  libkf6doctools-dev libssl-dev libicu-dev \
+  openssh-client sshpass rclone fuse3
 ```
-
 </details>
-
-### Step 2: Clone the repository
 
 ```bash
 git clone https://github.com/Sir-MmD/konsole-plus.git
 cd konsole-plus
-```
-
-### Step 3: Build
-
-```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
 cmake --build build --parallel $(nproc)
-```
-
-### Step 4: Install
-
-```bash
 sudo cmake --install build
 ```
 
-After installation, you can run `konsole-plus` from your application launcher or terminal.
+## Uninstall
 
-## Upstream
-
-This fork is based on [KDE Konsole](https://invent.kde.org/utilities/konsole). All original Konsole features, documentation, and keyboard/color scheme data remain unchanged.
+```bash
+sudo xargs rm -f < build/install_manifest.txt
+```
 
 ## License
 
-GPL-2.0-or-later (same as upstream Konsole)
+GPL-2.0-or-later (same as upstream [KDE Konsole](https://invent.kde.org/utilities/konsole))
