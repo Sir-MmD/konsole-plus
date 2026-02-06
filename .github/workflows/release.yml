@@ -1,106 +1,111 @@
 name: Build & Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+    push:
+        tags:
+            - "v*"
 
 permissions:
-  contents: write
+    contents: write
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - arch: x86_64
-            runner: ubuntu-24.04
-          - arch: aarch64
-            runner: ubuntu-24.04-arm
+    build:
+        strategy:
+            matrix:
+                include:
+                    - arch: x86_64
+                      runner: ubuntu-24.04
+                    - arch: aarch64
+                      runner: ubuntu-24.04-arm
 
-    runs-on: ${{ matrix.runner }}
+        runs-on: ${{ matrix.runner }}
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            cmake \
-            extra-cmake-modules \
-            g++ \
-            gettext \
-            libicu-dev \
-            libkf6bookmarks-dev \
-            libkf6bookmarkswidgets-dev \
-            libkf6config-dev \
-            libkf6configwidgets-dev \
-            libkf6coreaddons-dev \
-            libkf6crash-dev \
-            libkf6dbusaddons-dev \
-            libkf6globalaccel-dev \
-            libkf6guiaddons-dev \
-            libkf6i18n-dev \
-            libkf6iconthemes-dev \
-            libkf6iconwidgets-dev \
-            libkf6kio-dev \
-            libkf6newstuff-dev \
-            libkf6notifications-dev \
-            libkf6notifyconfig-dev \
-            libkf6parts-dev \
-            libkf6pty-dev \
-            libkf6service-dev \
-            libkf6textwidgets-dev \
-            libkf6widgetsaddons-dev \
-            libkf6windowsystem-dev \
-            libkf6xmlgui-dev \
-            libssl-dev \
-            libxkbcommon-dev \
-            pkg-config \
-            qt6-base-dev \
-            qt6-multimedia-dev \
-            zlib1g-dev
+            - name: Add KDE Neon repository
+              run: |
+                  wget -qO- https://archive.neon.kde.org/public.key | \
+                    sudo tee /etc/apt/keyrings/kde-neon.asc > /dev/null
+                  echo "deb [signed-by=/etc/apt/keyrings/kde-neon.asc] https://archive.neon.kde.org/user noble main" | \
+                    sudo tee /etc/apt/sources.list.d/kde-neon.list
 
-      - name: Configure
-        run: |
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=/usr \
-            -DBUILD_TESTING=OFF
+            - name: Install dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y --no-install-recommends \
+                    cmake \
+                    extra-cmake-modules \
+                    g++ \
+                    gettext \
+                    libicu-dev \
+                    libkf6bookmarks-dev \
+                    libkf6config-dev \
+                    libkf6configwidgets-dev \
+                    libkf6coreaddons-dev \
+                    libkf6crash-dev \
+                    libkf6dbusaddons-dev \
+                    libkf6globalaccel-dev \
+                    libkf6guiaddons-dev \
+                    libkf6i18n-dev \
+                    libkf6iconthemes-dev \
+                    libkf6kio-dev \
+                    libkf6newstuff-dev \
+                    libkf6notifications-dev \
+                    libkf6notifyconfig-dev \
+                    libkf6parts-dev \
+                    libkf6pty-dev \
+                    libkf6service-dev \
+                    libkf6textwidgets-dev \
+                    libkf6widgetsaddons-dev \
+                    libkf6windowsystem-dev \
+                    libkf6xmlgui-dev \
+                    libssl-dev \
+                    libxkbcommon-dev \
+                    pkg-config \
+                    qt6-base-dev \
+                    qt6-multimedia-dev \
+                    zlib1g-dev
 
-      - name: Build
-        run: cmake --build build --parallel $(nproc)
+            - name: Configure
+              run: |
+                  cmake -B build \
+                    -DCMAKE_BUILD_TYPE=Release \
+                    -DCMAKE_INSTALL_PREFIX=/usr \
+                    -DBUILD_TESTING=OFF
 
-      - name: Install to staging directory
-        run: DESTDIR=${{ github.workspace }}/install cmake --install build
+            - name: Build
+              run: cmake --build build --parallel $(nproc)
 
-      - name: Package
-        run: |
-          cd ${{ github.workspace }}/install
-          tar czf ${{ github.workspace }}/konsole-plus-${{ github.ref_name }}-linux-${{ matrix.arch }}.tar.gz .
+            - name: Install to staging directory
+              run: DESTDIR=${{ github.workspace }}/install cmake --install build
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: konsole-plus-${{ matrix.arch }}
-          path: konsole-plus-${{ github.ref_name }}-linux-${{ matrix.arch }}.tar.gz
+            - name: Package
+              run: |
+                  cd ${{ github.workspace }}/install
+                  tar czf ${{ github.workspace }}/konsole-plus-${{ github.ref_name }}-linux-${{ matrix.arch }}.tar.gz .
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
+            - name: Upload artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: konsole-plus-${{ matrix.arch }}
+                  path: konsole-plus-${{ github.ref_name }}-linux-${{ matrix.arch }}.tar.gz
 
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
+    release:
+        needs: build
+        runs-on: ubuntu-latest
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Konsole Plus ${{ github.ref_name }}
-          generate_release_notes: true
-          files: artifacts/*.tar.gz
+        steps:
+            - name: Download all artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+                  merge-multiple: true
+
+            - name: Create GitHub Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  name: Konsole Plus ${{ github.ref_name }}
+                  generate_release_notes: true
+                  files: artifacts/*.tar.gz
