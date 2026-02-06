@@ -31,13 +31,16 @@ Install dependencies for your distro, then build and install.
 <summary>Arch Linux</summary>
 
 ```bash
-sudo pacman -S base-devel cmake extra-cmake-modules qt6-base qt6-multimedia \
-  kf6-ki18n kf6-kconfig kf6-kconfigwidgets kf6-kcoreaddons kf6-kcrash \
-  kf6-kguiaddons kf6-kiconthemes kf6-kio kf6-knewstuff kf6-knotifications \
-  kf6-knotifyconfig kf6-kparts kf6-kservice kf6-ktextwidgets \
-  kf6-kwidgetsaddons kf6-kwindowsystem kf6-kxmlgui kf6-kbookmarks \
-  kf6-kpty kf6-kdbusaddons kf6-kglobalaccel kf6-kdoctools \
-  openssl icu openssh sshpass rclone fuse2
+sudo pacman -S --needed base-devel cmake extra-cmake-modules \
+  qt6-base qt6-multimedia \
+  kf6-kbookmarks kf6-kconfig kf6-kconfigwidgets kf6-kcoreaddons \
+  kf6-kcrash kf6-kdbusaddons kf6-kglobalaccel kf6-kguiaddons \
+  kf6-ki18n kf6-kiconthemes kf6-kio kf6-knewstuff \
+  kf6-knotifications kf6-knotifyconfig kf6-kparts kf6-kpty \
+  kf6-kservice kf6-ktextwidgets kf6-kwidgetsaddons \
+  kf6-kwindowsystem kf6-kxmlgui kf6-kdoctools \
+  icu zlib openssl libxkbcommon \
+  openssh sshpass rclone fuse3
 ```
 </details>
 
@@ -45,17 +48,18 @@ sudo pacman -S base-devel cmake extra-cmake-modules qt6-base qt6-multimedia \
 <summary>Fedora</summary>
 
 ```bash
-sudo dnf install cmake extra-cmake-modules gcc-c++ \
+sudo dnf install cmake gcc-c++ extra-cmake-modules \
   qt6-qtbase-devel qt6-qtmultimedia-devel \
-  kf6-ki18n-devel kf6-kconfig-devel kf6-kconfigwidgets-devel \
-  kf6-kcoreaddons-devel kf6-kcrash-devel kf6-kguiaddons-devel \
+  kf6-kbookmarks-devel kf6-kconfig-devel kf6-kconfigwidgets-devel \
+  kf6-kcoreaddons-devel kf6-kcrash-devel kf6-kdbusaddons-devel \
+  kf6-kglobalaccel-devel kf6-kguiaddons-devel kf6-ki18n-devel \
   kf6-kiconthemes-devel kf6-kio-devel kf6-knewstuff-devel \
   kf6-knotifications-devel kf6-knotifyconfig-devel kf6-kparts-devel \
-  kf6-kservice-devel kf6-ktextwidgets-devel kf6-kwidgetsaddons-devel \
-  kf6-kwindowsystem-devel kf6-kxmlgui-devel kf6-kbookmarks-devel \
-  kf6-kpty-devel kf6-kdbusaddons-devel kf6-kglobalaccel-devel \
-  kf6-kdoctools-devel openssl-devel libicu-devel \
-  openssh-clients sshpass rclone fuse
+  kf6-kpty-devel kf6-kservice-devel kf6-ktextwidgets-devel \
+  kf6-kwidgetsaddons-devel kf6-kwindowsystem-devel kf6-kxmlgui-devel \
+  kf6-kdoctools-devel \
+  libicu-devel zlib-devel openssl-devel libxkbcommon-devel \
+  openssh-clients sshpass rclone fuse3
 ```
 </details>
 
@@ -63,16 +67,17 @@ sudo dnf install cmake extra-cmake-modules gcc-c++ \
 <summary>Debian / Ubuntu</summary>
 
 ```bash
-sudo apt install cmake extra-cmake-modules g++ gettext \
+sudo apt install cmake g++ extra-cmake-modules \
   qt6-base-dev qt6-multimedia-dev \
-  libkf6i18n-dev libkf6config-dev libkf6configwidgets-dev \
-  libkf6coreaddons-dev libkf6crash-dev libkf6guiaddons-dev \
+  libkf6bookmarks-dev libkf6config-dev libkf6configwidgets-dev \
+  libkf6coreaddons-dev libkf6crash-dev libkf6dbusaddons-dev \
+  libkf6globalaccel-dev libkf6guiaddons-dev libkf6i18n-dev \
   libkf6iconthemes-dev libkf6kio-dev libkf6newstuff-dev \
   libkf6notifications-dev libkf6notifyconfig-dev libkf6parts-dev \
-  libkf6service-dev libkf6textwidgets-dev libkf6widgetsaddons-dev \
-  libkf6windowsystem-dev libkf6xmlgui-dev libkf6bookmarks-dev \
-  libkf6pty-dev libkf6dbusaddons-dev libkf6globalaccel-dev \
-  libkf6doctools-dev libssl-dev libicu-dev \
+  libkf6pty-dev libkf6service-dev libkf6textwidgets-dev \
+  libkf6widgetsaddons-dev libkf6windowsystem-dev libkf6xmlgui-dev \
+  libkf6doctools-dev \
+  libicu-dev zlib1g-dev libssl-dev libxkbcommon-dev \
   openssh-client sshpass rclone fuse3
 ```
 </details>
