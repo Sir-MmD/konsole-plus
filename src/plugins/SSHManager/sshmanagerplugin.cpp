@@ -51,7 +51,7 @@ struct SSHManagerPluginPrivate {
     
     QPointer<Konsole::MainWindow> currentMainWindow;
 
-    // Track active SSHFS mounts by SSH entry name.
+    // Track active rclone mounts by SSH entry name.
     // Stores the ref count (number of sessions using this mount) and the socket path.
     struct SshfsMount {
         int refCount = 0;
@@ -295,7 +295,7 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
         }
     }
 
-    // SSHFS mount handling: reuse existing mount if one is already active for this entry
+    // Rclone mount handling: reuse existing mount if one is already active for this entry
     const bool sshfsAlreadyMounted = data.enableSshfs && d->activeSshfsMounts.contains(data.name);
     const QString uuid = QUuid::createUuid().toString(QUuid::Id128);
     const QString socketPath = sshfsAlreadyMounted
@@ -309,7 +309,7 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
     QString mountPoint;
     if (data.enableSshfs) {
         const QString home = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
-        mountPoint = home + QStringLiteral("/sshfs_mounts/") + data.name;
+        mountPoint = home + QStringLiteral("/rclone_mounts/") + data.name;
     }
 
     if (data.enableSshfs && !sshfsAlreadyMounted) {

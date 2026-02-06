@@ -32,7 +32,7 @@ public:
     QString proxyUsername;
     QString proxyPassword;
 
-    // SSHFS Configuration
+    // Remote filesystem mount (rclone)
     bool enableSshfs = false;
 };
 

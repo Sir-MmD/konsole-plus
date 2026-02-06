@@ -11,7 +11,7 @@ This fork improves the built-in SSH Manager plugin with the following features:
 - **Connection status** -- Green **OK** on successful connection, red **FAILED** on failure
 - **Smart tab naming** -- Tabs are automatically named after the SSH profile identifier or hostname
 - **Safe reconnection** -- Clicking an SSH profile while already connected opens a new tab instead of crashing
-- **SSHFS deduplication** -- Multiple tabs to the same host share a single rclone/SSHFS mount with automatic cleanup
+- **Mount deduplication** -- Multiple tabs to the same host share a single rclone mount with automatic cleanup
 
 ### SSH Key Passphrase Support
 - New "Key Passphrase" field in the SSH profile editor for encrypted private keys
@@ -40,8 +40,8 @@ The SSH Manager plugin requires these tools to be installed on your system:
 |------|----------|---------|
 | `openssh` | Yes | SSH client (`ssh` command) |
 | `sshpass` | For password auth | Provides passwords to SSH non-interactively |
-| `rclone` | For SSHFS | Remote filesystem mounting via SFTP |
-| `fuse2` / `fuse3` | For SSHFS | FUSE support for rclone mount |
+| `rclone` | For remote mount | Remote filesystem mounting via SFTP |
+| `fuse2` / `fuse3` | For remote mount | FUSE support for rclone mount |
 
 ### Arch Linux
 
