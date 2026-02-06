@@ -1,35 +1,54 @@
-# Konsole - KDE's Terminal Emulator
+# Konsole Plus
 
-Konsole is a terminal program for KDE.
+A fork of [KDE Konsole](https://konsole.kde.org) with an enhanced SSH Manager plugin.
 
-As well as being a standalone program, it is also used by other KDE programs
-such as the Kate editor and KDevelop development environment to provide easy
-access to a terminal window. Konsole's features and usage are explained and
-illustrated in the Konsole handbook, which can be accessed by browsing to
-`help:/konsole` in Konqueror.
+## What's New
 
+This fork improves the built-in SSH Manager plugin with the following features:
 
-## Directory Structure
+### SSH Connection Improvements
+- **Clean connection experience** -- SSH commands (sshpass, etc.) are hidden from the terminal; only a "Connecting to ..." message is shown
+- **Connection status** -- Green **OK** on successful connection, red **FAILED** on failure
+- **Smart tab naming** -- Tabs are automatically named after the SSH profile identifier or hostname
+- **Safe reconnection** -- Clicking an SSH profile while already connected opens a new tab instead of crashing
+- **SSHFS deduplication** -- Multiple tabs to the same host share a single rclone/SSHFS mount with automatic cleanup
 
-| Directory          | Description                                                                                                                                                                        |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/doc/user`        | README files, primarily for advanced users, explaining various aspects of Konsole such as fonts and keyboard handling in-depth.                                                    |
-| `/doc/developer`   | README files and resources for developers of Konsole. This includes information on the design of Konsole's internals and the VT100 terminal on which Konsole's emulation is based. |
-| `/src`             | Source code for Konsole, including the embedded versions of Konsole which are used in Kate, KDevelop and others.                                                                   |
-| `/desktop`         | .desktop files for Konsole, used to launch the program from KDE's various menus and other application launchers.                                                                   |
-| `/data`            | Data files for use with Konsole as well as the keyboard setup and color schemes provided with Konsole.                                                                             |
+### SSH Key Passphrase Support
+- New "Key Passphrase" field in the SSH profile editor for encrypted private keys
 
-## Contact
+### Password Encryption at Rest
+- Encrypt stored passwords, key passphrases, and proxy passwords using **AES-256-GCM**
+- Master password with **PBKDF2-HMAC-SHA256** key derivation (100,000 iterations)
+- Lazy unlock -- master password is only prompted when you actually perform an operation (connect, edit, export)
+- Backwards compatible with existing plaintext configurations
 
-Up-to-date information about the latest releases can be found on Konsole's
-website at https://konsole.kde.org. Discussions about Konsole's development are
-held on the konsole-devel mailing list, which can be accessed at
-https://mail.kde.org/mailman/listinfo/konsole-devel.
+### Import / Export
+- Export all SSH profiles to a **JSON** file
+- Optionally encrypt the export with a separate passphrase
+- Import profiles from JSON files (encrypted or plain) and merge into the current configuration
 
-## Quick Links
-- [KDE Release Schedule](https://community.kde.org/Schedules)
-- [Official Homepage](https://konsole.kde.org)
-- [Builds](https://invent.kde.org/utilities/konsole/-/pipelines)
-- [Forums](https://discuss.kde.org/tag/konsole)
-- [Konsole Bug Reports ](https://bugs.kde.org/describecomponents.cgi?product=konsole)
+### Multi-Select
+- **Ctrl+click** and **Shift+click** to select multiple SSH profiles
+- Bulk delete selected entries
+- Double-click with multiple selection connects to all selected profiles
 
+## Building
+
+Standard KDE/CMake build:
+
+```bash
+mkdir build && cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr
+make -j$(nproc)
+sudo make install
+```
+
+Requires: Qt 6.5+, KDE Frameworks 6, OpenSSL 3.0+
+
+## Upstream
+
+This fork is based on [KDE Konsole](https://invent.kde.org/utilities/konsole). All original Konsole features, documentation, and keyboard/color scheme data remain unchanged.
+
+## License
+
+GPL-2.0-or-later (same as upstream Konsole)
