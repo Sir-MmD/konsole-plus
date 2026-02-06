@@ -25,7 +25,7 @@
 
 ## Build
 
-Install dependencies for your distro, then build and install.
+Requires Qt 6.5+ and KDE Frameworks 6. Install dependencies for your distro, then build and install.
 
 <details>
 <summary>Arch Linux</summary>
@@ -64,7 +64,9 @@ sudo dnf install cmake gcc-c++ extra-cmake-modules \
 </details>
 
 <details>
-<summary>Debian / Ubuntu</summary>
+<summary>Debian 13+ (Trixie) / Ubuntu 25.04+</summary>
+
+KF6 packages are **not available** in Debian 12 (Bookworm) or Ubuntu 24.04 (Noble).
 
 ```bash
 sudo apt install cmake g++ extra-cmake-modules \
