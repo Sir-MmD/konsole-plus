@@ -63,9 +63,12 @@ sudo apt install openssh-client sshpass rclone fuse3
 
 ## Building from Source
 
-### Build Dependencies
+### Step 1: Install build dependencies
 
-#### Arch Linux
+Pick your distro and run the command to install everything needed for compilation.
+
+<details>
+<summary>Arch Linux</summary>
 
 ```bash
 sudo pacman -S base-devel cmake extra-cmake-modules qt6-base qt6-multimedia \
@@ -77,7 +80,10 @@ sudo pacman -S base-devel cmake extra-cmake-modules qt6-base qt6-multimedia \
   openssl icu
 ```
 
-#### Fedora
+</details>
+
+<details>
+<summary>Fedora</summary>
 
 ```bash
 sudo dnf install cmake extra-cmake-modules gcc-c++ \
@@ -92,7 +98,10 @@ sudo dnf install cmake extra-cmake-modules gcc-c++ \
   kf6-kdoctools-devel openssl-devel libicu-devel
 ```
 
-#### Debian / Ubuntu
+</details>
+
+<details>
+<summary>Debian / Ubuntu</summary>
 
 ```bash
 sudo apt install cmake extra-cmake-modules g++ gettext \
@@ -107,16 +116,29 @@ sudo apt install cmake extra-cmake-modules g++ gettext \
   libkf6doctools-dev libssl-dev libicu-dev
 ```
 
-### Compile and Install
+</details>
+
+### Step 2: Clone the repository
 
 ```bash
-mkdir build && cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=/usr
-make -j$(nproc)
-sudo make install
+git clone https://github.com/Sir-MmD/konsole-plus.git
+cd konsole-plus
 ```
 
-The binary is installed as `konsole-plus`.
+### Step 3: Build
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+cmake --build build --parallel $(nproc)
+```
+
+### Step 4: Install
+
+```bash
+sudo cmake --install build
+```
+
+After installation, you can run `konsole-plus` from your application launcher or terminal.
 
 ## Upstream
 
