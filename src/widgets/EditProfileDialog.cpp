@@ -90,7 +90,7 @@ EditProfileDialog::EditProfileDialog(QWidget *parent)
     // oxygen-icon-theme, qt5ct and setting export QT_QPA_PLATFORMTHEME=qt5ct
     // Plain Xorg desktops still look terrible as there are no icons
     // visible.
-    const auto defaultIcon = QIcon::fromTheme(QStringLiteral("utilities-terminal"));
+    const auto defaultIcon = QIcon::fromTheme(QStringLiteral("konsole-plus"));
 
     // General page
 
@@ -100,7 +100,7 @@ EditProfileDialog::EditProfileDialog(QWidget *parent)
     _generalUi->setupUi(generalPageWidget);
     _generalPageItem = addPage(generalPageWidget, generalPageName);
     _generalPageItem->setHeader(generalPageName);
-    _generalPageItem->setIcon(QIcon::fromTheme(QStringLiteral("utilities-terminal")));
+    _generalPageItem->setIcon(QIcon::fromTheme(QStringLiteral("konsole-plus")));
     _pages[_generalPageItem] = Page(&EditProfileDialog::setupGeneralPage);
 
     // Tabs page

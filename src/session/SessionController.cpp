@@ -1952,7 +1952,7 @@ void SessionController::updateSessionIcon()
 {
     // If the default profile icon is being used, don't put it on the tab
     // Only show the icon if the user specifically chose one
-    if (session()->iconName() == QStringLiteral("utilities-terminal")) {
+    if (session()->iconName() == QStringLiteral("konsole-plus")) {
         _sessionIconName = QString();
     } else {
         _sessionIconName = session()->iconName();

@@ -70,7 +70,7 @@ QString DistroboxDetector::displayName() const
 QString DistroboxDetector::iconName() const
 {
     // TODO: Find appropriate icon
-    return QStringLiteral("utilities-terminal");
+    return QStringLiteral("konsole-plus");
 }
 
 std::optional<ContainerInfo> DistroboxDetector::detect(int pid) const

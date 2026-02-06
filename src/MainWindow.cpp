@@ -981,7 +981,7 @@ void MainWindow::showSettingsDialog(const bool showProfilePage)
 
     const QString generalPageName = i18nc("@title Preferences page name", "General");
     auto *generalPage = new KPageWidgetItem(new GeneralSettings(confDialog), generalPageName);
-    generalPage->setIcon(QIcon::fromTheme(QStringLiteral("utilities-terminal")));
+    generalPage->setIcon(QIcon::fromTheme(QStringLiteral("konsole-plus")));
     confDialog->addPage(generalPage, true);
 
     auto *profileSettings = new ProfileSettings(confDialog);

@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
 
     migrateRenamedConfigKeys();
 
-    app->setWindowIcon(QIcon::fromTheme(QStringLiteral("utilities-terminal")));
+    app->setWindowIcon(QIcon::fromTheme(QStringLiteral("konsole-plus")));
 
     KLocalizedString::setApplicationDomain("konsole");
 

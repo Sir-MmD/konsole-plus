@@ -26,8 +26,8 @@ QString ToolboxDetector::displayName() const
 
 QString ToolboxDetector::iconName() const
 {
-    // TODO: Find appropriate icon, perhaps "utilities-terminal" or custom
-    return QStringLiteral("utilities-terminal");
+    // TODO: Find appropriate icon, perhaps "konsole-plus" or custom
+    return QStringLiteral("konsole-plus");
 }
 
 std::optional<ContainerInfo> ToolboxDetector::detect(int pid) const

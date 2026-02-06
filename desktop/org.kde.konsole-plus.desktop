@@ -2,7 +2,7 @@
 Type=Application
 TryExec=konsole-plus
 Exec=konsole-plus
-Icon=utilities-terminal
+Icon=konsole-plus
 Categories=Qt;KDE;System;TerminalEmulator;
 Actions=NewWindow;NewTab;
 X-DocPath=konsole-plus/index.html

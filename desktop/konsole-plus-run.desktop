@@ -8,7 +8,7 @@ X-KDE-AuthorizeAction=shell_access
 [Desktop Action runInKonsole]
 TryExec=konsole-plus
 Exec=konsole-plus --hold -e %f
-Icon=utilities-terminal
+Icon=konsole-plus
 
 Name=Run In Konsole
 Name[ar]=شغل في كونسول

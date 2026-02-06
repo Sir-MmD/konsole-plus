@@ -63,7 +63,7 @@ const std::vector<Profile::PropertyInfo> Profile::DefaultProperties = {
     {Path, "Path", nullptr, QString()},
     {Name, "Name", GENERAL_GROUP, QString()},
     {UntranslatedName, "UntranslatedName", nullptr, QString()},
-    {Icon, "Icon", GENERAL_GROUP, QLatin1String("utilities-terminal")},
+    {Icon, "Icon", GENERAL_GROUP, QLatin1String("konsole-plus")},
     {Command, "Command", nullptr, QString()},
     {Arguments, "Arguments", nullptr, QStringList()},
     {MenuIndex, "MenuIndex", nullptr, QLatin1String("0")},
