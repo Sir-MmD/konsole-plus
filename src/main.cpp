@@ -185,14 +185,14 @@ int main(int argc, char *argv[])
 
     KLocalizedString::setApplicationDomain("konsole");
 
-    KAboutData about(QStringLiteral("konsole"),
-                     i18nc("@title", "Konsole"),
+    KAboutData about(QStringLiteral("konsole-plus"),
+                     i18nc("@title", "Konsole Plus"),
                      QStringLiteral(KONSOLE_VERSION),
-                     i18nc("@title", "Terminal emulator"),
+                     i18nc("@title", "Enhanced terminal emulator"),
                      KAboutLicense::GPL_V2,
                      i18nc("@info:credit", "(c) 1997-2022, The Konsole Developers"),
                      QString(),
-                     QStringLiteral("https://konsole.kde.org/"));
+                     QStringLiteral("https://github.com/Sir-MmD/konsole-plus"));
     fillAboutData(about);
 
     KAboutData::setApplicationData(about);
