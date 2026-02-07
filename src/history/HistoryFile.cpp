@@ -48,7 +48,7 @@ HistoryFile::HistoryFile()
             // only possible if user manually added it. If not
             // found, use konsole's config.
             if (!appConfig->hasGroup(QStringLiteral("FileLocation"))) {
-                appConfig = KSharedConfig::openConfig(QStringLiteral("konsolerc"));
+                appConfig = KSharedConfig::openConfig(QStringLiteral("konsole-plusrc"));
             }
         }
 

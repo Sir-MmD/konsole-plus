@@ -43,7 +43,7 @@ public:
 
     QStandardItem *addTopLevelItem(const QString &toplevel);
     void addChildItem(const SSHConfigurationData &config, const QString &parentName);
-    void editChildItem(const SSHConfigurationData &config, const QModelIndex &idx);
+    void editChildItem(const SSHConfigurationData &config, const QModelIndex &idx, const QString &newFolder = {});
     void removeIndex(const QModelIndex &idx);
     bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
     QStringList folders() const;

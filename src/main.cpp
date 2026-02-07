@@ -97,7 +97,7 @@ static int CurrentConfigVersion = 1;
 
 static void migrateRenamedConfigKeys()
 {
-    KSharedConfigPtr konsoleConfig = KSharedConfig::openConfig(QStringLiteral("konsolerc"));
+    KSharedConfigPtr konsoleConfig = KSharedConfig::openConfig(QStringLiteral("konsole-plusrc"));
     KConfigGroup verGroup = konsoleConfig->group(QStringLiteral("General"));
     const int savedVersion = verGroup.readEntry<int>("ConfigVersion", 0);
     if (savedVersion < CurrentConfigVersion) {

@@ -138,11 +138,31 @@ bool SSHManagerModel::setData(const QModelIndex &index, const QVariant &value, i
     return ret;
 }
 
-void SSHManagerModel::editChildItem(const SSHConfigurationData &config, const QModelIndex &idx)
+void SSHManagerModel::editChildItem(const SSHConfigurationData &config, const QModelIndex &idx, const QString &newFolder)
 {
     QStandardItem *item = itemFromIndex(idx);
     item->setData(QVariant::fromValue(config), SSHRole);
     item->setData(config.name, Qt::DisplayRole);
+
+    // Move to a different folder if requested
+    if (!newFolder.isEmpty() && item->parent()) {
+        const QString currentFolder = item->parent()->text();
+        if (currentFolder != newFolder) {
+            QStandardItem *targetParent = nullptr;
+            for (int i = 0, end = invisibleRootItem()->rowCount(); i < end; i++) {
+                if (invisibleRootItem()->child(i)->text() == newFolder) {
+                    targetParent = invisibleRootItem()->child(i);
+                    break;
+                }
+            }
+            if (targetParent) {
+                const int row = item->row();
+                QList<QStandardItem *> taken = item->parent()->takeRow(row);
+                targetParent->appendRow(taken);
+            }
+        }
+    }
+
     item->parent()->sortChildren(0);
 }
 
@@ -254,7 +274,7 @@ void SSHManagerModel::load()
 {
     m_sshConfigTopLevelItem = nullptr;
 
-    auto config = KConfig(QStringLiteral("konsolesshconfig"), KConfig::OpenFlag::SimpleConfig);
+    auto config = KConfig(QStringLiteral("konsole-plussshconfig"), KConfig::OpenFlag::SimpleConfig);
 
     // Load encryption settings first
     if (config.hasGroup(QStringLiteral("Encryption"))) {
@@ -306,7 +326,7 @@ void SSHManagerModel::load()
 
 void SSHManagerModel::save()
 {
-    auto config = KConfig(QStringLiteral("konsolesshconfig"), KConfig::OpenFlag::SimpleConfig);
+    auto config = KConfig(QStringLiteral("konsole-plussshconfig"), KConfig::OpenFlag::SimpleConfig);
     const auto groupList = config.groupList();
     for (const QString &groupName : groupList) {
         config.deleteGroup(groupName);

@@ -123,8 +123,8 @@ ecm_qt_declare_logging_category(
     konsoleprivate_core_SRCS
     HEADER konsoledebug.h
     IDENTIFIER KonsoleDebug
-    CATEGORY_NAME org.kde.konsole
-    DESCRIPTION "Konsole"
+    CATEGORY_NAME org.kde.konsole-plus
+    DESCRIPTION "Konsole Plus"
     EXPORT KONSOLE
 )
 

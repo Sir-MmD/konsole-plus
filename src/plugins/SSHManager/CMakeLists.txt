@@ -7,8 +7,8 @@ ecm_qt_declare_logging_category(
     extra_sshplugin_SRCS
     HEADER sshmanagerplugindebug.h
     IDENTIFIER SshManagerPluginDebug
-    CATEGORY_NAME org.kde.konsole.plugin.sshmanager
-    DESCRIPTION "Konsole plugin (SSH Manager)"
+    CATEGORY_NAME org.kde.konsole-plus.plugin.sshmanager
+    DESCRIPTION "Konsole Plus plugin (SSH Manager)"
     DEFAULT_SEVERITY Warning
     EXPORT KONSOLE
 )

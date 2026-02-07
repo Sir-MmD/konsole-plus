@@ -320,7 +320,7 @@ bool EditProfileDialog::isProfileNameValid()
         return false;
     }
 
-    const QString profileStoragePath(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QDir::separator() + QStringLiteral("konsole"));
+    const QString profileStoragePath(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QDir::separator() + QStringLiteral("konsole-plus"));
     int nameLenMax = 256;
 
 #if defined(Q_OS_LINUX) | defined(Q_OS_OPENBSD) | defined(Q_OS_FREEBSD) | defined(Q_OS_MACOS) | defined(Q_OS_SOLARIS)
@@ -973,7 +973,7 @@ void EditProfileDialog::setupAppearancePage(const Profile::Ptr &profile)
     connect(getNewButton, &KNSWidgets::Button::dialogFinished, this, &Konsole::EditProfileDialog::gotNewColorSchemes);
 
     getNewButton->setText(i18n("Get New..."));
-    getNewButton->setConfigFile(QStringLiteral(":/konsole/konsole.knsrc"));
+    getNewButton->setConfigFile(QStringLiteral(":/konsole-plus/konsole.knsrc"));
     _appearanceUi->colorSchemesBtnLayout->addWidget(getNewButton);
 
     _appearanceUi->enableBidiRenderingButton->setChecked(profile->bidiRenderingEnabled());

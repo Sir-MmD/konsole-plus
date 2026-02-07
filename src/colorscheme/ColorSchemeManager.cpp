@@ -104,8 +104,8 @@ QString ColorSchemeManager::colorSchemeNameFromPath(const QString &path)
 
 QStringList ColorSchemeManager::listColorSchemes()
 {
-    QStringList dirs = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("konsole"), QStandardPaths::LocateDirectory);
-    dirs.append(QStringLiteral(":/konsole/color-schemes")); // fallback to bundled ones
+    QStringList dirs = QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("konsole-plus"), QStandardPaths::LocateDirectory);
+    dirs.append(QStringLiteral(":/konsole-plus/color-schemes")); // fallback to bundled ones
 
     QStringList colorschemes;
     for (const QString &dir : std::as_const(dirs)) {
@@ -129,7 +129,7 @@ void ColorSchemeManager::addColorScheme(const std::shared_ptr<ColorScheme> &sche
 
     // save changes to disk
 
-    const QString dir = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/konsole/");
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/konsole-plus/");
     QDir().mkpath(dir);
     const QString path = dir + scheme->name() + QStringLiteral(".colorscheme");
     KConfig config(path, KConfig::NoGlobals);
@@ -185,12 +185,12 @@ std::shared_ptr<const ColorScheme> ColorSchemeManager::findColorScheme(const QSt
 
 QString ColorSchemeManager::findColorSchemePath(const QString &name) const
 {
-    QString path = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("konsole/") + name + QStringLiteral(".colorscheme"));
+    QString path = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("konsole-plus/") + name + QStringLiteral(".colorscheme"));
     if (path.isEmpty()) {
-        path = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("konsole/") + name + QStringLiteral(".schema"));
+        path = QStandardPaths::locate(QStandardPaths::GenericDataLocation, QStringLiteral("konsole-plus/") + name + QStringLiteral(".schema"));
     }
     if (path.isEmpty()) {
-        const QString resource = QStringLiteral(":/konsole/color-schemes/") + name + QStringLiteral(".colorscheme");
+        const QString resource = QStringLiteral(":/konsole-plus/color-schemes/") + name + QStringLiteral(".colorscheme");
         if (QFile::exists(resource)) {
             path = resource;
         }
@@ -214,7 +214,7 @@ bool ColorSchemeManager::isColorSchemeDeletable(const QString &name)
 bool ColorSchemeManager::canResetColorScheme(const QString &name)
 {
     const QStringList paths =
-        QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("konsole/") + name + QStringLiteral(".colorscheme"));
+        QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("konsole-plus/") + name + QStringLiteral(".colorscheme"));
 
     // if the colorscheme exists in both a writable location under the
     // user's home dir and a system-wide location, then it's possible

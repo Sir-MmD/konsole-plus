@@ -65,7 +65,7 @@ ProfileManager::ProfileManager()
     // if the hosting application of konsolepart does not specify its own
     // default profile, use the default profile of stand-alone Konsole.
     if (defaultProfileFileName.isEmpty()) {
-        KSharedConfigPtr konsoleConfig = KSharedConfig::openConfig(QStringLiteral("konsolerc"));
+        KSharedConfigPtr konsoleConfig = KSharedConfig::openConfig(QStringLiteral("konsole-plusrc"));
         group = konsoleConfig->group(QStringLiteral("Desktop Entry"));
         defaultProfileFileName = group.readEntry("DefaultProfile", "");
     }
@@ -140,7 +140,7 @@ Profile::Ptr ProfileManager::loadProfile(const QString &shortPath)
         path.append(QLatin1String(".profile"));
     }
     if (fileInfo.path().isEmpty() || fileInfo.path() == QLatin1String(".")) {
-        path.prepend(QLatin1String("konsole") + QDir::separator());
+        path.prepend(QLatin1String("konsole-plus") + QDir::separator());
     }
 
     // if the file is not an absolute path, look it up
