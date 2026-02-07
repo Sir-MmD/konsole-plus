@@ -260,7 +260,7 @@ void SSHManagerTreeWidget::saveEdit()
 
     auto selection = ui->treeView->selectionModel()->selectedIndexes();
     auto sourceIdx = d->filterModel->mapToSource(selection.at(0));
-    d->model->editChildItem(info(), sourceIdx);
+    d->model->editChildItem(info(), sourceIdx, ui->folder->currentText());
 
     clearSshInfo();
 }
@@ -383,10 +383,11 @@ void SSHManagerTreeWidget::editSshInfo()
 
     ui->enableSshfs->setChecked(data.enableSshfs);
 
-    // This is just for add. To edit the folder, the user will drag & drop.
-    ui->folder->setCurrentText(QStringLiteral("not-used-here"));
-    ui->folderLabel->hide();
-    ui->folder->hide();
+    // Show folder dropdown so user can move the profile to a different folder
+    ui->folder->clear();
+    ui->folder->addItems(d->model->folders());
+    const QString currentFolder = d->model->itemFromIndex(sourceIdx.parent())->text();
+    ui->folder->setCurrentText(currentFolder);
     ui->btnAdd->setText(i18n("Update"));
     disconnect(ui->btnAdd, nullptr, this, nullptr);
     connect(ui->btnAdd, &QPushButton::clicked, this, &SSHManagerTreeWidget::saveEdit);
@@ -437,7 +438,8 @@ void SSHManagerTreeWidget::clearSshInfo()
     ui->proxyPort->setText(QStringLiteral("1080"));
     ui->proxyUsername->setText({});
     ui->proxyPassword->setText({});
-    ui->enableSshfs->setChecked(false);
+    ui->autoAcceptKeys->setChecked(true);
+    ui->enableSshfs->setChecked(true);
     ui->treeView->setEnabled(true);
 }
 

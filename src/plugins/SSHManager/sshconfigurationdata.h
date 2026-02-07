@@ -21,7 +21,7 @@ public:
     QString username;
     QString profileName;
     QString password;
-    bool autoAcceptKeys = false;
+    bool autoAcceptKeys = true;
     bool useSshConfig = false;
     bool importedFromSshConfig = false;
     
