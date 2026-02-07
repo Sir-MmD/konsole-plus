@@ -436,6 +436,7 @@ void SSHManagerModel::removeIndex(const QModelIndex &idx)
 void SSHManagerModel::startImportFromSshConfig()
 {
     importFromSshConfigFile(sshDir + QStringLiteral("config"));
+    save();
 }
 
 void SSHManagerModel::importFromSshConfigFile(const QString &file)
@@ -536,6 +537,7 @@ void SSHManagerModel::importFromSshConfigFile(const QString &file)
 void SSHManagerModel::setManageProfile(bool manage)
 {
     manageProfile = manage;
+    save();
 }
 
 bool SSHManagerModel::getManageProfile()

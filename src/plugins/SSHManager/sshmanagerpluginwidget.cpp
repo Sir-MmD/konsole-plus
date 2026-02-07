@@ -140,6 +140,7 @@ SSHManagerTreeWidget::SSHManagerTreeWidget(QWidget *parent)
                 dataCopy.importedFromSshConfig = false;
                 const QString folderName = d->model->itemFromIndex(sourceIdx.parent())->text();
                 d->model->addChildItem(dataCopy, folderName);
+                d->model->save();
             });
         }
 
@@ -251,6 +252,7 @@ void SSHManagerTreeWidget::addSshInfo()
     }
 
     d->model->addChildItem(info(), ui->folder->currentText());
+    d->model->save();
     clearSshInfo();
 }
 
@@ -267,6 +269,7 @@ void SSHManagerTreeWidget::saveEdit()
     auto selection = ui->treeView->selectionModel()->selectedRows(0);
     auto sourceIdx = d->filterModel->mapToSource(selection.at(0));
     d->model->editChildItem(info(), sourceIdx, ui->folder->currentText());
+    d->model->save();
 
     clearSshInfo();
 }
@@ -347,6 +350,8 @@ void SSHManagerTreeWidget::triggerDelete()
             d->model->removeIndex(persistIdx);
         }
     }
+
+    d->model->save();
 }
 
 void SSHManagerTreeWidget::editSshInfo()
@@ -635,7 +640,7 @@ void SSHManagerTreeWidget::handleTreeClick(Qt::MouseButton btn, const QModelInde
 void SSHManagerTreeWidget::showEvent(QShowEvent *)
 {
     if (!d->isSetup) {
-        ui->treeView->expandAll();
+        ui->treeView->collapseAll();
         d->isSetup = true;
     }
 }
