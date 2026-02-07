@@ -745,10 +745,12 @@ QJsonDocument SSHManagerModel::exportToJson(const QString &exportPassword) const
     return QJsonDocument(root);
 }
 
-bool SSHManagerModel::importFromJson(const QJsonDocument &doc, const QString &importPassword)
+QList<QPair<QString, SSHConfigurationData>> SSHManagerModel::parseImportJson(const QJsonDocument &doc, const QString &importPassword)
 {
+    QList<QPair<QString, SSHConfigurationData>> result;
+
     if (doc.isNull() || !doc.isObject()) {
-        return false;
+        return result;
     }
 
     const QJsonObject root = doc.object();
@@ -758,7 +760,7 @@ bool SSHManagerModel::importFromJson(const QJsonDocument &doc, const QString &im
 
     if (encrypted) {
         if (importPassword.isEmpty()) {
-            return false;
+            return result;
         }
 
         // Reconstruct the blob: salt || iv || tag || ciphertext
@@ -775,13 +777,13 @@ bool SSHManagerModel::importFromJson(const QJsonDocument &doc, const QString &im
 
         const QByteArray decrypted = SSHCryptoHelper::decryptBlob(blob, importPassword);
         if (decrypted.isEmpty()) {
-            return false;
+            return result;
         }
 
         QJsonParseError parseError;
         QJsonDocument foldersDoc = QJsonDocument::fromJson(decrypted, &parseError);
         if (parseError.error != QJsonParseError::NoError || !foldersDoc.isArray()) {
-            return false;
+            return result;
         }
         foldersArray = foldersDoc.array();
     } else {
@@ -801,12 +803,43 @@ bool SSHManagerModel::importFromJson(const QJsonDocument &doc, const QString &im
             if (data.name.isEmpty() || data.host.isEmpty()) {
                 continue;
             }
-            addChildItem(data, folderName);
+            result.append({folderName, data});
         }
+    }
+
+    return result;
+}
+
+bool SSHManagerModel::importFromJson(const QJsonDocument &doc, const QString &importPassword)
+{
+    const auto entries = parseImportJson(doc, importPassword);
+    if (entries.isEmpty()) {
+        return false;
+    }
+
+    for (const auto &[folderName, data] : entries) {
+        addChildItem(data, folderName);
     }
 
     save();
     return true;
+}
+
+QModelIndex SSHManagerModel::findChildByName(const QString &folderName, const QString &profileName) const
+{
+    for (int i = 0, end = invisibleRootItem()->rowCount(); i < end; i++) {
+        QStandardItem *folder = invisibleRootItem()->child(i);
+        if (folder->text() != folderName) {
+            continue;
+        }
+        for (int e = 0, rend = folder->rowCount(); e < rend; e++) {
+            QStandardItem *child = folder->child(e);
+            if (child->text() == profileName) {
+                return child->index();
+            }
+        }
+    }
+    return {};
 }
 
 #include "moc_sshmanagermodel.cpp"

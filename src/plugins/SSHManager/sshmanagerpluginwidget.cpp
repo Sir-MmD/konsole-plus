@@ -35,6 +35,7 @@
 #include <QPoint>
 #include <QProcess>
 
+#include <QCheckBox>
 #include <QSettings>
 #include <QSortFilterProxyModel>
 
@@ -890,12 +891,105 @@ void SSHManagerTreeWidget::importProfiles()
         }
     }
 
-    if (!d->model->importFromJson(doc, importPassword)) {
+    const auto entries = d->model->parseImportJson(doc, importPassword);
+    if (entries.isEmpty()) {
         KMessageBox::error(this, i18n("Failed to import profiles. The file may be corrupted or the passphrase is incorrect."));
         return;
     }
 
-    KMessageBox::information(this, i18n("Profiles imported successfully."));
+    enum DuplicateAction { NoAction, Replace, Skip, Rename };
+    DuplicateAction applyToAll = NoAction;
+    int imported = 0;
+    int skipped = 0;
+    int replaced = 0;
+    int renamed = 0;
+
+    for (const auto &[folderName, data] : entries) {
+        const QModelIndex existing = d->model->findChildByName(folderName, data.name);
+
+        if (!existing.isValid()) {
+            // No duplicate — just add
+            d->model->addChildItem(data, folderName);
+            imported++;
+            continue;
+        }
+
+        // Duplicate found — determine action
+        DuplicateAction action = applyToAll;
+
+        if (action == NoAction) {
+            QMessageBox msgBox(this);
+            msgBox.setWindowTitle(i18n("Duplicate Profile"));
+            msgBox.setText(i18n("A profile named \"%1\" already exists in folder \"%2\".", data.name, folderName));
+            msgBox.setInformativeText(i18n("What would you like to do?"));
+            msgBox.setIcon(QMessageBox::Question);
+
+            auto *btnReplace = msgBox.addButton(i18n("Replace"), QMessageBox::AcceptRole);
+            auto *btnSkip = msgBox.addButton(i18n("Skip"), QMessageBox::RejectRole);
+            auto *btnRename = msgBox.addButton(i18n("Rename"), QMessageBox::ActionRole);
+
+            auto *applyAllCheck = new QCheckBox(i18n("Apply to all remaining duplicates"), &msgBox);
+            msgBox.setCheckBox(applyAllCheck);
+
+            msgBox.exec();
+
+            const auto *clicked = msgBox.clickedButton();
+            if (clicked == btnReplace) {
+                action = Replace;
+            } else if (clicked == btnSkip) {
+                action = Skip;
+            } else if (clicked == btnRename) {
+                action = Rename;
+            } else {
+                action = Skip; // dialog closed
+            }
+
+            if (applyAllCheck->isChecked()) {
+                applyToAll = action;
+            }
+        }
+
+        switch (action) {
+        case Replace:
+            d->model->removeIndex(existing);
+            d->model->addChildItem(data, folderName);
+            replaced++;
+            break;
+        case Skip:
+            skipped++;
+            break;
+        case Rename: {
+            SSHConfigurationData renamedData = data;
+            int suffix = 2;
+            while (d->model->findChildByName(folderName, renamedData.name).isValid()) {
+                renamedData.name = QStringLiteral("%1 (%2)").arg(data.name).arg(suffix++);
+            }
+            d->model->addChildItem(renamedData, folderName);
+            renamed++;
+            break;
+        }
+        case NoAction:
+            break;
+        }
+    }
+
+    d->model->save();
+
+    QStringList summary;
+    if (imported > 0) {
+        summary << i18np("%1 profile added", "%1 profiles added", imported);
+    }
+    if (replaced > 0) {
+        summary << i18np("%1 profile replaced", "%1 profiles replaced", replaced);
+    }
+    if (renamed > 0) {
+        summary << i18np("%1 profile renamed", "%1 profiles renamed", renamed);
+    }
+    if (skipped > 0) {
+        summary << i18np("%1 profile skipped", "%1 profiles skipped", skipped);
+    }
+
+    KMessageBox::information(this, summary.join(QStringLiteral("\n")), i18n("Import Complete"));
 }
 
 #include "moc_sshmanagerpluginwidget.cpp"

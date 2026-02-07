@@ -21,7 +21,7 @@ class SessionController;
 class Session;
 }
 
-class SSHConfigurationData;
+#include "sshconfigurationdata.h"
 
 class SSHManagerModel : public QStandardItemModel
 {
@@ -81,6 +81,8 @@ public:
     // Import/Export
     QJsonDocument exportToJson(const QString &exportPassword = {}) const;
     bool importFromJson(const QJsonDocument &doc, const QString &importPassword = {});
+    QList<QPair<QString, SSHConfigurationData>> parseImportJson(const QJsonDocument &doc, const QString &importPassword = {});
+    QModelIndex findChildByName(const QString &folderName, const QString &profileName) const;
 
 private:
     QString maybeEncrypt(const QString &value) const;
