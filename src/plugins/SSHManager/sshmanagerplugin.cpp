@@ -264,6 +264,8 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
             sshCommand = QStringLiteral("sshpass -P 'passphrase' -p '%1' ").arg(data.sshKeyPassphrase) + sshCommand;
         }
 
+        sshCommand += QStringLiteral("-o ConnectTimeout=15 ");
+
         if (data.autoAcceptKeys) {
              sshCommand += QStringLiteral("-o StrictHostKeyChecking=no ");
         }
@@ -350,6 +352,7 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
 
                  QString mountCmd = rcloneExe + QStringLiteral(" mount");
 
+                 mountCmd += QStringLiteral(" --contimeout 15s");
                  mountCmd += QStringLiteral(" --vfs-cache-mode full");
                  mountCmd += QStringLiteral(" --vfs-cache-max-age 1h");
                  
