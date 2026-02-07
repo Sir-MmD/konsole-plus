@@ -14,14 +14,13 @@
 
 ## Features
 
-- **Clean SSH connections** -- commands are hidden from the terminal, showing only a "Connecting to ..." message with green OK / red FAILED status
-- **Smart tab naming** -- tabs are automatically named after the SSH profile
-- **Safe reconnection** -- opening a profile while already connected spawns a new tab
-- **Remote filesystem mounting** -- automatically mount remote filesystems via rclone when connecting, with mount deduplication across tabs
-- **SSH key passphrase support** -- dedicated field for encrypted private keys
-- **Password encryption** -- AES-256-GCM encryption for all stored credentials with a master password (PBKDF2, 100k iterations)
-- **Import / Export** -- save and load SSH profiles as JSON, optionally encrypted
-- **Multi-select** -- Ctrl+click / Shift+click to bulk-connect or bulk-delete profiles
+- **Encrypted credential storage** -- stored passwords and passphrases are encrypted with a master password
+- **Remote filesystem mounting** -- mount remote filesystems automatically on connect via rclone
+- **Profile import / export** -- back up and share SSH profiles as JSON with optional encryption and duplicate handling
+- **SOCKS5 proxy support** -- connect through a proxy per profile
+- **Clean connection output** -- hides the SSH command, shows connection status only
+- **Automatic tab naming** -- tabs are named after the SSH profile
+- **Multi-select operations** -- bulk-connect or bulk-delete profiles
 
 ## Build
 
