@@ -46,9 +46,6 @@ SSHManagerModel::SSHManagerModel(QObject *parent)
 {
     setColumnCount(ColumnCount);
     load();
-    if (invisibleRootItem()->rowCount() == 0) {
-        addTopLevelItem(i18nc("@item:inlistbox The default list of ssh hosts", "Default"));
-    }
     if (QFileInfo::exists(sshDir + QStringLiteral("config"))) {
         m_sshConfigWatcher.addPath(sshDir + QStringLiteral("config"));
         connect(&m_sshConfigWatcher, &QFileSystemWatcher::fileChanged, this, [this] {
