@@ -279,6 +279,8 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
         }
 
         if (data.sshKey.length()) {
+            // Ensure the key file has correct permissions (600) so SSH doesn't reject it
+            QFile::setPermissions(data.sshKey, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
             sshCommand += QStringLiteral("-i %1 ").arg(data.sshKey);
         }
 
@@ -323,7 +325,7 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
         
         QObject::connect(timer, &QTimer::timeout, controller->session(), [timer, counter, socketPath, data, mountPoint]() {
              (*counter)++;
-             if (*counter > 60) {
+             if (*counter > 30) {
                  timer->stop();
                  timer->deleteLater();
                  delete counter;
@@ -356,9 +358,17 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
                  if (data.useSshConfig) {
                       sshWrapper = QStringLiteral("ssh -S %1 %2").arg(socketPath, data.name);
                  } else {
+                      // The control master socket (-S) already tunnels through
+                      // the proxy when one is configured, so the rclone sftp-ssh
+                      // wrapper does NOT need a ProxyCommand — the multiplexed
+                      // slave connections piggyback on the master.
                       sshWrapper = QStringLiteral("ssh -S %1").arg(socketPath);
+
                       if (data.port.length()) {
                            sshWrapper += QStringLiteral(" -p %1").arg(data.port);
+                      }
+                      if (data.sshKey.length()) {
+                           sshWrapper += QStringLiteral(" -i %1").arg(data.sshKey);
                       }
                       if (!data.username.isEmpty()) {
                            sshWrapper += QStringLiteral(" %1@%2").arg(data.username, data.host);
@@ -381,12 +391,12 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
                  }
                  mountCmd += QStringLiteral(" ") + rcloneTarget;
                  
-                 mountCmd += QStringLiteral(" ") + mountPoint;
+                 mountCmd += QStringLiteral(" '%1'").arg(mountPoint);
                  
-                 mountCmd += QStringLiteral(" --volname %1").arg(data.name);
+                 mountCmd += QStringLiteral(" --volname '%1'").arg(data.name);
                  
                  QString logFile = QStringLiteral("/tmp/konsole_rclone_%1.log").arg(data.name);
-                 mountCmd += QStringLiteral(" --log-file=\"%1\" -vv").arg(logFile);
+                 mountCmd += QStringLiteral(" --log-file='%1' -vv").arg(logFile);
                  
                  mountCmd += QStringLiteral(" --daemon");
 
