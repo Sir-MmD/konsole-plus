@@ -19,6 +19,7 @@ SOURCES
     sshmanagerpluginwidget.cpp
     sshmanagermodel.cpp
     sshmanagerfiltermodel.cpp
+    sshitemdelegate.cpp
     sshtreeview.cpp
     sshcryptohelper.cpp
     ${extra_sshplugin_SRCS}

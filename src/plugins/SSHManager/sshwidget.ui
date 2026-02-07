@@ -93,7 +93,7 @@
    <item>
     <widget class="SshTreeView" name="treeView">
      <attribute name="headerVisible">
-      <bool>false</bool>
+      <bool>true</bool>
      </attribute>
     </widget>
    </item>

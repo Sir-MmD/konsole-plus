@@ -17,6 +17,7 @@
 
 #include "profile/ProfileModel.h"
 
+#include "sshitemdelegate.h"
 #include "sshmanagerfiltermodel.h"
 #include "sshmanagerplugin.h"
 #include "ui_sshwidget.h"
@@ -112,6 +113,9 @@ SSHManagerTreeWidget::SSHManagerTreeWidget(QWidget *parent)
             return;
         }
 
+        // Always work with column 0 (SSHRole data lives there)
+        idx = idx.siblingAtColumn(0);
+
         if (idx.data(Qt::DisplayRole) == i18n("SSH Config")) {
             return;
         }
@@ -177,7 +181,7 @@ SSHManagerTreeWidget::SSHManagerTreeWidget(QWidget *parent)
         if (!ensureDecrypted()) {
             return;
         }
-        const auto selection = ui->treeView->selectionModel()->selectedIndexes();
+        const auto selection = ui->treeView->selectionModel()->selectedRows(0);
         if (selection.size() > 1) {
             // Connect all selected profiles
             for (const auto &proxyIdx : selection) {
@@ -188,7 +192,7 @@ SSHManagerTreeWidget::SSHManagerTreeWidget(QWidget *parent)
                 Q_EMIT requestConnection(sourceIdx, d->controller);
             }
         } else {
-            auto sourceIdx = d->filterModel->mapToSource(idx);
+            auto sourceIdx = d->filterModel->mapToSource(idx.siblingAtColumn(0));
             Q_EMIT requestConnection(sourceIdx, d->controller);
         }
     });
@@ -196,6 +200,7 @@ SSHManagerTreeWidget::SSHManagerTreeWidget(QWidget *parent)
     connect(ui->treeView, &SshTreeView::mouseButtonClicked, this, &SSHManagerTreeWidget::handleTreeClick);
 
     ui->treeView->setModel(d->filterModel);
+    ui->treeView->setItemDelegate(new SshItemDelegate(this));
 
     // We have nothing selected, so there's nothing to edit.
     ui->btnEdit->setEnabled(false);
@@ -258,7 +263,7 @@ void SSHManagerTreeWidget::saveEdit()
         return;
     }
 
-    auto selection = ui->treeView->selectionModel()->selectedIndexes();
+    auto selection = ui->treeView->selectionModel()->selectedRows(0);
     auto sourceIdx = d->filterModel->mapToSource(selection.at(0));
     d->model->editChildItem(info(), sourceIdx, ui->folder->currentText());
 
@@ -299,7 +304,7 @@ SSHConfigurationData SSHManagerTreeWidget::info() const
 
 void SSHManagerTreeWidget::triggerDelete()
 {
-    auto selection = ui->treeView->selectionModel()->selectedIndexes();
+    auto selection = ui->treeView->selectionModel()->selectedRows(0);
     if (selection.empty()) {
         return;
     }
@@ -348,7 +353,7 @@ void SSHManagerTreeWidget::editSshInfo()
     if (!ensureDecrypted()) {
         return;
     }
-    auto selection = ui->treeView->selectionModel()->selectedIndexes();
+    auto selection = ui->treeView->selectionModel()->selectedRows(0);
     if (selection.empty()) {
         return;
     }
@@ -555,12 +560,12 @@ void SSHManagerTreeWidget::handleTreeClick(Qt::MouseButton btn, const QModelInde
     if (!d->controller) {
         return;
     }
-    auto sourceIdx = d->filterModel->mapToSource(idx);
+    auto sourceIdx = d->filterModel->mapToSource(idx.siblingAtColumn(0));
 
     // Don't override Qt's selection — ExtendedSelection handles Ctrl/Shift clicks
 
     if (btn == Qt::LeftButton || btn == Qt::RightButton) {
-        const auto selection = ui->treeView->selectionModel()->selectedIndexes();
+        const auto selection = ui->treeView->selectionModel()->selectedRows(0);
         const int selCount = selection.size();
 
         if (selCount > 1) {

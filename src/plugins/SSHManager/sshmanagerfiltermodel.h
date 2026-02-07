@@ -18,6 +18,9 @@ public:
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
     void setInvertFilter(bool invert);
 
+protected:
+    bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
+
 private:
     bool m_invertFilter = false;
 };

@@ -44,11 +44,8 @@ const QString sshDir = QStandardPaths::writableLocation(QStandardPaths::HomeLoca
 SSHManagerModel::SSHManagerModel(QObject *parent)
     : QStandardItemModel(parent)
 {
+    setColumnCount(ColumnCount);
     load();
-    if (!m_sshConfigTopLevelItem) {
-        // this also sets the m_sshConfigTopLevelItem if the text is `SSH Config`.
-        addTopLevelItem(i18nc("@item:inlistbox Hosts from ssh/config file", "SSH Config"));
-    }
     if (invisibleRootItem()->rowCount() == 0) {
         addTopLevelItem(i18nc("@item:inlistbox The default list of ssh hosts", "Default"));
     }
@@ -77,8 +74,8 @@ QStandardItem *SSHManagerModel::addTopLevelItem(const QString &name)
     auto *newItem = new QStandardItem();
     newItem->setText(name);
     newItem->setToolTip(i18n("%1 is a folder for SSH entries", name));
-    invisibleRootItem()->appendRow(newItem);
-    invisibleRootItem()->sortChildren(0);
+    QList<QStandardItem *> row = {newItem, new QStandardItem(), new QStandardItem()};
+    invisibleRootItem()->appendRow(row);
 
     if (name == i18n("SSH Config")) {
         m_sshConfigTopLevelItem = newItem;
@@ -101,12 +98,23 @@ void SSHManagerModel::addChildItem(const SSHConfigurationData &config, const QSt
         parentItem = addTopLevelItem(parentName);
     }
 
-    auto newChild = new QStandardItem();
-    newChild->setData(QVariant::fromValue(config), SSHRole);
-    newChild->setText(config.name);
-    newChild->setToolTip(i18n("Host: %1", config.host));
-    parentItem->appendRow(newChild);
-    parentItem->sortChildren(0);
+    auto *nameItem = new QStandardItem();
+    nameItem->setData(QVariant::fromValue(config), SSHRole);
+    nameItem->setText(config.name);
+
+    auto *hostItem = new QStandardItem();
+    QString hostText = config.host;
+    if (!config.port.isEmpty() && config.port != QStringLiteral("22")) {
+        hostText += QLatin1Char(':') + config.port;
+    }
+    hostItem->setText(hostText);
+
+    auto *proxyItem = new QStandardItem();
+    if (config.useProxy) {
+        proxyItem->setText(i18n("PROXY"));
+    }
+
+    parentItem->appendRow({nameItem, hostItem, proxyItem});
 }
 
 std::optional<QString> SSHManagerModel::profileForHost(const QString &host) const
@@ -134,7 +142,6 @@ std::optional<QString> SSHManagerModel::profileForHost(const QString &host) cons
 bool SSHManagerModel::setData(const QModelIndex &index, const QVariant &value, int role)
 {
     const bool ret = QStandardItemModel::setData(index, value, role);
-    invisibleRootItem()->sortChildren(0);
     return ret;
 }
 
@@ -143,6 +150,20 @@ void SSHManagerModel::editChildItem(const SSHConfigurationData &config, const QM
     QStandardItem *item = itemFromIndex(idx);
     item->setData(QVariant::fromValue(config), SSHRole);
     item->setData(config.name, Qt::DisplayRole);
+
+    // Update host column
+    QString hostText = config.host;
+    if (!config.port.isEmpty() && config.port != QStringLiteral("22")) {
+        hostText += QLatin1Char(':') + config.port;
+    }
+    if (QStandardItem *parent = item->parent()) {
+        if (QStandardItem *hostItem = parent->child(item->row(), HostColumn)) {
+            hostItem->setText(hostText);
+        }
+        if (QStandardItem *proxyItem = parent->child(item->row(), ProxyColumn)) {
+            proxyItem->setText(config.useProxy ? i18n("PROXY") : QString());
+        }
+    }
 
     // Move to a different folder if requested
     if (!newFolder.isEmpty() && item->parent()) {
@@ -162,8 +183,6 @@ void SSHManagerModel::editChildItem(const SSHConfigurationData &config, const QM
             }
         }
     }
-
-    item->parent()->sortChildren(0);
 }
 
 QStringList SSHManagerModel::folders() const
@@ -286,7 +305,7 @@ void SSHManagerModel::load()
 
     const auto groupList = config.groupList();
     for (const QString &groupName : groupList) {
-        if (groupName == QStringLiteral("Encryption")) {
+        if (groupName == QStringLiteral("Encryption") || groupName == QStringLiteral("TreeView")) {
             continue;
         }
         KConfigGroup group = config.group(groupName);
@@ -329,6 +348,9 @@ void SSHManagerModel::save()
     auto config = KConfig(QStringLiteral("konsole-plussshconfig"), KConfig::OpenFlag::SimpleConfig);
     const auto groupList = config.groupList();
     for (const QString &groupName : groupList) {
+        if (groupName == QStringLiteral("TreeView")) {
+            continue;
+        }
         config.deleteGroup(groupName);
     }
 
@@ -373,6 +395,27 @@ void SSHManagerModel::save()
     }
 
     config.sync();
+}
+
+int SSHManagerModel::columnCount(const QModelIndex &parent) const
+{
+    Q_UNUSED(parent);
+    return ColumnCount;
+}
+
+QVariant SSHManagerModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+    if (orientation == Qt::Horizontal && role == Qt::DisplayRole) {
+        switch (section) {
+        case NameColumn:
+            return i18nc("@title:column SSH profile name", "Name");
+        case HostColumn:
+            return i18nc("@title:column SSH host address", "Host");
+        case ProxyColumn:
+            return i18nc("@title:column Proxy indicator", "Proxy");
+        }
+    }
+    return QStandardItemModel::headerData(section, orientation, role);
 }
 
 Qt::ItemFlags SSHManagerModel::flags(const QModelIndex &index) const

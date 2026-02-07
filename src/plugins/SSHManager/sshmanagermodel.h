@@ -31,6 +31,13 @@ public:
         SSHRole = Qt::UserRole + 1,
     };
 
+    enum Column {
+        NameColumn = 0,
+        HostColumn = 1,
+        ProxyColumn = 2,
+        ColumnCount = 3,
+    };
+
     explicit SSHManagerModel(QObject *parent = nullptr);
     ~SSHManagerModel() override;
 
@@ -48,6 +55,8 @@ public:
     bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
     QStringList folders() const;
 
+    int columnCount(const QModelIndex &parent = QModelIndex()) const override;
+    QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
     Qt::ItemFlags flags(const QModelIndex &index) const override;
 
     void startImportFromSshConfig();
