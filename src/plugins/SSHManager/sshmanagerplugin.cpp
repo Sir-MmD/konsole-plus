@@ -59,6 +59,9 @@ struct SSHManagerPluginPrivate {
         QString mountPoint;
     };
     QHash<QString, SshfsMount> activeSshfsMounts;
+
+    // Track which sessions were connected via the SSH Manager, so we can duplicate them.
+    QHash<Konsole::Session*, SSHConfigurationData> activeSessionData;
 };
 
 SSHManagerPlugin::SSHManagerPlugin(QObject *object, const QVariantList &args)
@@ -482,8 +485,51 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
         }
     });
 
+    // Track this session so it can be duplicated from the tab context menu.
+    d->activeSessionData[controller->session()] = data;
+    connect(controller->session(), &Konsole::Session::finished, this, [this, session]() {
+        if (session) {
+            d->activeSessionData.remove(session);
+        }
+    });
+
     if (controller->session()->views().count()) {
         controller->session()->views().at(0)->setFocus();
+    }
+}
+
+bool SSHManagerPlugin::canDuplicateSession(Konsole::Session *session) const
+{
+    return session && d->activeSessionData.contains(session);
+}
+
+void SSHManagerPlugin::duplicateSession(Konsole::Session *session, Konsole::MainWindow *mainWindow)
+{
+    if (!session || !mainWindow) {
+        return;
+    }
+
+    auto it = d->activeSessionData.find(session);
+    if (it == d->activeSessionData.end()) {
+        return;
+    }
+
+    SSHConfigurationData data = it.value();
+    mainWindow->newTab();
+
+    auto *newController = mainWindow->viewManager()->activeViewController();
+    if (!newController) {
+        return;
+    }
+
+    Konsole::Session *newSession = newController->session();
+    if (newSession->isRunning()) {
+        startConnection(data, newController);
+    } else {
+        connect(newSession, &Konsole::Session::started, this,
+                [this, data, newController]() {
+                    startConnection(data, newController);
+                }, Qt::SingleShotConnection);
     }
 }
 

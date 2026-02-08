@@ -104,6 +104,24 @@ MainWindow::MainWindow()
     connect(_viewManager, &Konsole::ViewManager::newViewWithProfileRequest, this, &Konsole::MainWindow::newFromProfile);
     connect(_viewManager, &Konsole::ViewManager::newViewRequest, this, &Konsole::MainWindow::newTab);
     connect(_viewManager, &Konsole::ViewManager::terminalsDetached, this, &Konsole::MainWindow::terminalsDetached);
+    connect(_viewManager, &Konsole::ViewManager::duplicateSessionRequest, this, [this](Session *session) {
+        for (auto *plugin : _plugins) {
+            if (plugin->canDuplicateSession(session)) {
+                plugin->duplicateSession(session, this);
+                return;
+            }
+        }
+    });
+    connect(_viewManager, &Konsole::ViewManager::tabContextMenuAboutToShow, this, [this](Session *session) {
+        bool canDuplicate = false;
+        for (auto *plugin : _plugins) {
+            if (plugin->canDuplicateSession(session)) {
+                canDuplicate = true;
+                break;
+            }
+        }
+        _viewManager->activeContainer()->setDuplicateSessionEnabled(canDuplicate);
+    });
     connect(_viewManager, &Konsole::ViewManager::activationRequest, this, &Konsole::MainWindow::activationRequest);
 
     setCentralWidget(_viewManager->widget());

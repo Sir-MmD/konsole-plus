@@ -21,6 +21,7 @@
 - **Clean connection output** -- hides the SSH command, shows connection status only
 - **Automatic tab naming** -- tabs are named after the SSH profile
 - **Multi-select operations** -- bulk-connect or bulk-delete profiles
+- **Duplicate Session** -- right-click a tab to open another connection to the same SSH host
 
 ## Build
 

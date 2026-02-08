@@ -169,6 +169,9 @@ public:
 
     void moveToNewTab(TerminalDisplay *display);
 
+    /** Enable or disable the "Duplicate Session" context menu action. */
+    void setDuplicateSessionEnabled(bool enabled);
+
     QSize sizeHint() const override;
 
 Q_SIGNALS:
@@ -206,6 +209,12 @@ Q_SIGNALS:
 
     /** detach the specific tab */
     void detachTab(int tabIdx);
+
+    /** duplicate the SSH session in the specific tab */
+    void duplicateSession(int tabIdx);
+
+    /** emitted before the tab context menu is shown so listeners can update actions */
+    void tabContextMenuAboutToShow(int tabIdx);
 
     /** set the color tab */
     void setColor(int index, const QColor &color);
@@ -255,6 +264,7 @@ private:
     QHash<const QWidget *, TabIconState> _tabIconState;
     ViewManager *_connectedViewManager;
     QMenu *_contextPopupMenu;
+    QAction *_duplicateSessionAction;
     QToolButton *_newTabButton;
     QToolButton *_searchTabsButton;
     QToolButton *_closeTabButton;

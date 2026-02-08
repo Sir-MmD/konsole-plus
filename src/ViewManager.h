@@ -231,6 +231,12 @@ Q_SIGNALS:
 
     void blurSettingChanged(bool);
 
+    /** Emitted when the user requests to duplicate an SSH session */
+    void duplicateSessionRequest(Session *session);
+
+    /** Emitted before the tab context menu is shown, carrying the session for the tab */
+    void tabContextMenuAboutToShow(Session *session);
+
     /** Requests creation of a new view with the default profile. */
     void newViewRequest();
     /** Requests creation of a new view, with the selected profile. */
@@ -469,6 +475,9 @@ private Q_SLOTS:
 
     /* Detaches the tab at index tabIdx */
     void detachTab(int tabIdx);
+
+    /* Duplicates the SSH session in the tab at index tabIdx */
+    void duplicateSession(int tabIdx);
 
     void semanticSetupBash();
 

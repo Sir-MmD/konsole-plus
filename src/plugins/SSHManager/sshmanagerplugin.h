@@ -16,6 +16,7 @@
 
 namespace Konsole
 {
+class Session;
 class SessionController;
 class MainWindow;
 }
@@ -37,6 +38,9 @@ public:
     QList<QAction *> menuBarActions(Konsole::MainWindow *mainWindow) const override;
 
     void requestConnection(const QModelIndex &idx, Konsole::SessionController *controller);
+
+    bool canDuplicateSession(Konsole::Session *session) const override;
+    void duplicateSession(Konsole::Session *session, Konsole::MainWindow *mainWindow) override;
 
 private:
     void startConnection(const SSHConfigurationData &data, Konsole::SessionController *controller);

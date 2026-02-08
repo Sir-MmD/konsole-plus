@@ -569,6 +569,20 @@ void ViewManager::detachTab(int tabIdx)
     Q_EMIT terminalsDetached(splitter, detachedSessions);
 }
 
+void ViewManager::duplicateSession(int tabIdx)
+{
+    auto *splitter = _viewContainer->viewSplitterAt(tabIdx);
+    if (!splitter) {
+        return;
+    }
+    auto *display = splitter->activeTerminalDisplay();
+    if (!display || !display->sessionController()) {
+        return;
+    }
+
+    Q_EMIT duplicateSessionRequest(display->sessionController()->session());
+}
+
 void ViewManager::semanticSetupBash()
 {
     int currentSessionId = currentSession();
@@ -1008,6 +1022,16 @@ TabbedViewContainer *ViewManager::createContainer()
     auto *container = new TabbedViewContainer(this, nullptr);
     container->setNavigationVisibility(_navigationVisibility);
     connect(container, &TabbedViewContainer::detachTab, this, &ViewManager::detachTab);
+    connect(container, &TabbedViewContainer::duplicateSession, this, &ViewManager::duplicateSession);
+    connect(container, &TabbedViewContainer::tabContextMenuAboutToShow, this, [this, container](int tabIdx) {
+        auto *splitter = container->viewSplitterAt(tabIdx);
+        if (splitter) {
+            auto *display = splitter->activeTerminalDisplay();
+            if (display && display->sessionController()) {
+                Q_EMIT tabContextMenuAboutToShow(display->sessionController()->session());
+            }
+        }
+    });
 
     // connect signals and slots
     connect(container, &Konsole::TabbedViewContainer::viewAdded, this, [this, container]() {

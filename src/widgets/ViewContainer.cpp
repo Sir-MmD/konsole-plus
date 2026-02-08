@@ -107,6 +107,12 @@ TabbedViewContainer::TabbedViewContainer(ViewManager *connectedViewManager, QWid
     });
     detachAction->setObjectName(QStringLiteral("tab-detach"));
 
+    _duplicateSessionAction =
+        _contextPopupMenu->addAction(QIcon::fromTheme(QStringLiteral("tab-duplicate")), i18nc("@action:inmenu", "D&uplicate Session"), this, [this] {
+            Q_EMIT duplicateSession(_contextMenuTabIndex);
+        });
+    _duplicateSessionAction->setObjectName(QStringLiteral("duplicate-session"));
+
     auto editAction =
         _contextPopupMenu->addAction(QIcon::fromTheme(QStringLiteral("edit-rename")), i18nc("@action:inmenu", "&Configure or Rename Tab..."), this, [this] {
             renameTab(_contextMenuTabIndex);
@@ -531,6 +537,10 @@ void TabbedViewContainer::openTabContextMenu(const QPoint &point)
         }
     }
 
+    // Default to disabled; listeners update via setDuplicateSessionEnabled()
+    _duplicateSessionAction->setEnabled(false);
+    Q_EMIT tabContextMenuAboutToShow(_contextMenuTabIndex);
+
     _contextPopupMenu->exec(tabBar()->mapToGlobal(point));
 }
 
@@ -803,6 +813,11 @@ void TabbedViewContainer::moveTabRight()
 void TabbedViewContainer::setNavigationBehavior(int behavior)
 {
     _newTabBehavior = static_cast<NewTabBehavior>(behavior);
+}
+
+void TabbedViewContainer::setDuplicateSessionEnabled(bool enabled)
+{
+    _duplicateSessionAction->setEnabled(enabled);
 }
 
 void TabbedViewContainer::moveToNewTab(TerminalDisplay *display)

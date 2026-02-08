@@ -22,6 +22,7 @@
 namespace Konsole
 {
 class MainWindow;
+class Session;
 
 class KONSOLEAPP_EXPORT IKonsolePlugin : public QObject
 {
@@ -43,6 +44,20 @@ public:
     {
         Q_UNUSED(mainWindow)
         return {};
+    }
+
+    /** Returns true if the plugin can duplicate the given session (e.g. re-connect SSH). */
+    virtual bool canDuplicateSession(Konsole::Session *session) const
+    {
+        Q_UNUSED(session)
+        return false;
+    }
+
+    /** Duplicate the session by opening a new tab with the same connection. */
+    virtual void duplicateSession(Konsole::Session *session, Konsole::MainWindow *mainWindow)
+    {
+        Q_UNUSED(session)
+        Q_UNUSED(mainWindow)
     }
 
 protected:
