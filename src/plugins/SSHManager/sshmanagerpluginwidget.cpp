@@ -131,6 +131,14 @@ SSHManagerTreeWidget::SSHManagerTreeWidget(QWidget *parent)
         QMenu *menu = new QMenu(this);
 
         if (!isParent) {
+            auto editAction = new QAction(QIcon::fromTheme(QStringLiteral("document-edit")), i18nc("@action:inmenu", "Edit"), ui->treeView);
+            menu->addAction(editAction);
+            connect(editAction, &QAction::triggered, this, [this, idx] {
+                ui->treeView->selectionModel()->select(idx, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+                ui->treeView->setCurrentIndex(idx);
+                editSshInfo();
+            });
+
             auto duplicateAction = new QAction(QIcon::fromTheme(QStringLiteral("edit-copy")), i18nc("@action:inmenu", "Duplicate"), ui->treeView);
             menu->addAction(duplicateAction);
             connect(duplicateAction, &QAction::triggered, this, [this, sourceIdx] {
