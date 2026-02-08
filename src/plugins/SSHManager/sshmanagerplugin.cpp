@@ -270,7 +270,7 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
         sshCommand += QStringLiteral("-o ConnectTimeout=15 ");
 
         if (data.autoAcceptKeys) {
-             sshCommand += QStringLiteral("-o StrictHostKeyChecking=no ");
+             sshCommand += QStringLiteral("-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ");
         }
 
         if (data.useProxy && !data.proxyIp.isEmpty() && !data.proxyPort.isEmpty()) {
