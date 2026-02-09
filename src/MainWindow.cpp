@@ -112,15 +112,27 @@ MainWindow::MainWindow()
             }
         }
     });
+    connect(_viewManager, &Konsole::ViewManager::reconnectSessionRequest, this, [this](Session *session) {
+        for (auto *plugin : _plugins) {
+            if (plugin->canReconnectSession(session)) {
+                plugin->reconnectSession(session, this);
+                return;
+            }
+        }
+    });
     connect(_viewManager, &Konsole::ViewManager::tabContextMenuAboutToShow, this, [this](Session *session) {
         bool canDuplicate = false;
+        bool canReconnect = false;
         for (auto *plugin : _plugins) {
             if (plugin->canDuplicateSession(session)) {
                 canDuplicate = true;
-                break;
+            }
+            if (plugin->canReconnectSession(session)) {
+                canReconnect = true;
             }
         }
         _viewManager->activeContainer()->setDuplicateSessionEnabled(canDuplicate);
+        _viewManager->activeContainer()->setReconnectSessionEnabled(canReconnect);
     });
     connect(_viewManager, &Konsole::ViewManager::activationRequest, this, &Konsole::MainWindow::activationRequest);
 
@@ -678,6 +690,12 @@ void MainWindow::addPlugin(IKonsolePlugin *plugin)
 {
     Q_ASSERT(std::find(_plugins.cbegin(), _plugins.cend(), plugin) == _plugins.cend());
     _plugins.push_back(plugin);
+    connect(plugin, &IKonsolePlugin::sshStateChanged, this, &MainWindow::updateSshState);
+}
+
+void MainWindow::updateSshState(Session *session, int state)
+{
+    _viewManager->updateSshState(session, state);
 }
 
 void MainWindow::cloneTab()

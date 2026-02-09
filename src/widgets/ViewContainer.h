@@ -172,6 +172,12 @@ public:
     /** Enable or disable the "Duplicate Session" context menu action. */
     void setDuplicateSessionEnabled(bool enabled);
 
+    /** Enable or disable the "Reconnect" context menu action. */
+    void setReconnectSessionEnabled(bool enabled);
+
+    /** Update the SSH state indicator for the tab containing the given session. */
+    void updateSshState(Session *session, int state);
+
     QSize sizeHint() const override;
 
 Q_SIGNALS:
@@ -212,6 +218,9 @@ Q_SIGNALS:
 
     /** duplicate the SSH session in the specific tab */
     void duplicateSession(int tabIdx);
+
+    /** reconnect the SSH session in the specific tab */
+    void reconnectSession(int tabIdx);
 
     /** emitted before the tab context menu is shown so listeners can update actions */
     void tabContextMenuAboutToShow(int tabIdx);
@@ -262,9 +271,11 @@ private:
     bool _stylesheetSet = false;
 
     QHash<const QWidget *, TabIconState> _tabIconState;
+    QHash<const QWidget *, int> _tabSshState; // SSH state per top-level splitter (IKonsolePlugin::SshState)
     ViewManager *_connectedViewManager;
     QMenu *_contextPopupMenu;
     QAction *_duplicateSessionAction;
+    QAction *_reconnectSessionAction;
     QToolButton *_newTabButton;
     QToolButton *_searchTabsButton;
     QToolButton *_closeTabButton;

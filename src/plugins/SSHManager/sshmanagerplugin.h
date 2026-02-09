@@ -42,6 +42,8 @@ public:
 
     bool canDuplicateSession(Konsole::Session *session) const override;
     void duplicateSession(Konsole::Session *session, Konsole::MainWindow *mainWindow) override;
+    bool canReconnectSession(Konsole::Session *session) const override;
+    void reconnectSession(Konsole::Session *session, Konsole::MainWindow *mainWindow) override;
 
 private:
     void startConnection(const SSHConfigurationData &data, Konsole::SessionController *controller);

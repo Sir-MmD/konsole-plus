@@ -176,6 +176,9 @@ public:
     /** returns the active tab from the view
      */
     TabbedViewContainer *activeContainer();
+
+    /** Update the SSH state indicator for the tab containing the given session. */
+    void updateSshState(Session *session, int state);
     TerminalDisplay *createView(Session *session);
     void attachView(TerminalDisplay *terminal, Session *session);
 
@@ -233,6 +236,9 @@ Q_SIGNALS:
 
     /** Emitted when the user requests to duplicate an SSH session */
     void duplicateSessionRequest(Session *session);
+
+    /** Emitted when the user requests to reconnect an SSH session */
+    void reconnectSessionRequest(Session *session);
 
     /** Emitted before the tab context menu is shown, carrying the session for the tab */
     void tabContextMenuAboutToShow(Session *session);
@@ -478,6 +484,9 @@ private Q_SLOTS:
 
     /* Duplicates the SSH session in the tab at index tabIdx */
     void duplicateSession(int tabIdx);
+
+    /* Reconnects the SSH session in the tab at index tabIdx */
+    void reconnectSession(int tabIdx);
 
     void semanticSetupBash();
 

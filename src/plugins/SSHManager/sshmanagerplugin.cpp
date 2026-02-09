@@ -62,6 +62,9 @@ struct SSHManagerPluginPrivate {
 
     // Track which sessions were connected via the SSH Manager, so we can duplicate them.
     QHash<Konsole::Session*, SSHConfigurationData> activeSessionData;
+
+    // Track per-session SSH state so we know if reconnect is possible.
+    QHash<Konsole::Session*, int> sessionSshState;
 };
 
 SSHManagerPlugin::SSHManagerPlugin(QObject *object, const QVariantList &args)
@@ -498,7 +501,12 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
     const QString sshErrLog = QStringLiteral("/tmp/konsole_ssh_err_%1.log")
         .arg(QUuid::createUuid().toString(QUuid::Id128));
 
-    const QString greenOk = QStringLiteral("printf '\\033[32mOK\\033[0m\\n'");
+    // Status file: the script writes "connected", "disconnected", or "failed"
+    // so C++ can poll and update the tab indicator.
+    const QString sshStatusFile = QStringLiteral("/tmp/konsole_ssh_status_%1")
+        .arg(QUuid::createUuid().toString(QUuid::Id128));
+
+    const QString greenOk = QStringLiteral("printf '\\033[32mOK\\033[0m\\n'; echo connected > '%1'").arg(sshStatusFile);
     const QString localCmdOpts = QStringLiteral("-o PermitLocalCommand=yes -o LocalCommand=\"%1\" ").arg(greenOk);
 
     const QString sshOpts = QStringLiteral("-E '%1' ").arg(sshErrLog) + localCmdOpts;
@@ -532,7 +540,10 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
         "  *)                           _r=\"$_e\";;"
         " esac;");
     script += QStringLiteral(" [ -n \"$_r\" ] && echo -e '  \\033[33m'\"$_r\"'\\033[0m';");
+    script += QStringLiteral(" echo failed > '%1';").arg(sshStatusFile);
     script += QStringLiteral(" rm -f '%1' '%2'; exec bash; };").arg(sshErrLog, scriptPath);
+    // SSH exited normally (user typed 'exit' or connection dropped) — mark disconnected.
+    script += QStringLiteral(" echo disconnected > '%1';").arg(sshStatusFile);
     script += QStringLiteral(" rm -f '%1' '%2'\n").arg(sshErrLog, scriptPath);
 
     QFile scriptFile(scriptPath);
@@ -548,18 +559,56 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
     session->setEchoEnabled(false);
     session->sendTextToTerminal(wrappedCommand, QLatin1Char('\r'));
 
-    // Keep forcing echo ON every 500ms so that SSH password prompts show
-    // typed characters. SSH turns echo off for password reads via /dev/tty;
-    // this timer counteracts that. Stops when the session finishes.
-    auto *echoTimer = new QTimer(controller->session());
-    echoTimer->setInterval(500);
-    connect(echoTimer, &QTimer::timeout, controller->session(), [session]() {
+    // Re-enable echo after a short delay so the shell prompt reappears.
+    // SSH itself puts the local PTY into raw mode (echo off) once it
+    // connects, so this only bridges the gap while the command is parsed.
+    QTimer::singleShot(500, controller->session(), [session]() {
         if (session) {
             session->setEchoEnabled(true);
         }
     });
-    connect(controller->session(), &Konsole::Session::finished, echoTimer, &QTimer::stop);
-    echoTimer->start();
+
+    // SSH status indicator: poll the status file to detect connect/disconnect/fail.
+    d->sessionSshState[controller->session()] = IKonsolePlugin::SshConnecting;
+    Q_EMIT sshStateChanged(controller->session(), IKonsolePlugin::SshConnecting);
+
+    auto *statusTimer = new QTimer(controller->session());
+    statusTimer->setInterval(500);
+    auto lastState = std::make_shared<int>(IKonsolePlugin::SshConnecting);
+    connect(statusTimer, &QTimer::timeout, this, [this, session, statusTimer, sshStatusFile, lastState]() {
+        QFile f(sshStatusFile);
+        if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            return; // File doesn't exist yet — still connecting
+        }
+        const QString status = QString::fromUtf8(f.readAll()).trimmed();
+        f.close();
+        if (status == QLatin1String("connected")) {
+            if (*lastState != IKonsolePlugin::SshConnected) {
+                *lastState = IKonsolePlugin::SshConnected;
+                if (session) {
+                    d->sessionSshState[session] = IKonsolePlugin::SshConnected;
+                    Q_EMIT sshStateChanged(session, IKonsolePlugin::SshConnected);
+                }
+            }
+            // Keep polling — need to detect disconnect later
+        } else if (status == QLatin1String("disconnected") || status == QLatin1String("failed")) {
+            statusTimer->stop();
+            if (session) {
+                d->sessionSshState[session] = IKonsolePlugin::SshDisconnected;
+                Q_EMIT sshStateChanged(session, IKonsolePlugin::SshDisconnected);
+            }
+            QFile::remove(sshStatusFile);
+        }
+    });
+    connect(controller->session(), &Konsole::Session::finished, this, [this, session, statusTimer, sshStatusFile]() {
+        statusTimer->stop();
+        QFile::remove(sshStatusFile);
+        if (session) {
+            d->sessionSshState.remove(session);
+            Q_EMIT sshStateChanged(session, IKonsolePlugin::SshDisconnected);
+        }
+    });
+    statusTimer->start();
 
     // Track this session so it can be duplicated from the tab context menu.
     d->activeSessionData[controller->session()] = data;
@@ -607,6 +656,53 @@ void SSHManagerPlugin::duplicateSession(Konsole::Session *session, Konsole::Main
                     startConnection(data, newController);
                 }, Qt::SingleShotConnection);
     }
+}
+
+bool SSHManagerPlugin::canReconnectSession(Konsole::Session *session) const
+{
+    if (!session || !d->activeSessionData.contains(session)) {
+        return false;
+    }
+    int state = d->sessionSshState.value(session, IKonsolePlugin::NoSsh);
+    return state == IKonsolePlugin::SshConnecting || state == IKonsolePlugin::SshConnected;
+}
+
+void SSHManagerPlugin::reconnectSession(Konsole::Session *session, Konsole::MainWindow *mainWindow)
+{
+    Q_UNUSED(mainWindow)
+
+    if (!session) {
+        return;
+    }
+
+    auto it = d->activeSessionData.find(session);
+    if (it == d->activeSessionData.end()) {
+        return;
+    }
+
+    SSHConfigurationData data = it.value();
+
+    // Find the SessionController for this session
+    Konsole::SessionController *controller = nullptr;
+    const auto views = session->views();
+    for (auto *view : views) {
+        if (view->sessionController() && view->sessionController()->session() == session) {
+            controller = view->sessionController();
+            break;
+        }
+    }
+    if (!controller) {
+        return;
+    }
+
+    // Send exit to terminate any active SSH, then reconnect after a short delay
+    session->sendTextToTerminal(QStringLiteral("exit"), QLatin1Char('\r'));
+
+    QTimer::singleShot(300, this, [this, data, controller]() {
+        if (controller && controller->session()) {
+            startConnection(data, controller);
+        }
+    });
 }
 
 #include "moc_sshmanagerplugin.cpp"

@@ -166,6 +166,7 @@ protected Q_SLOTS:
     void saveNewToolbarConfig() override;
 
 private Q_SLOTS:
+    void updateSshState(Session *session, int state);
     void cloneTab();
     void newWindow();
     void showManageProfilesDialog();

@@ -28,6 +28,8 @@ class KONSOLEAPP_EXPORT IKonsolePlugin : public QObject
 {
     Q_OBJECT
 public:
+    enum SshState { NoSsh = 0, SshConnecting = 1, SshConnected = 2, SshDisconnected = 3 };
+
     IKonsolePlugin(QObject *parent, const QVariantList &args);
     ~IKonsolePlugin() override;
 
@@ -59,6 +61,23 @@ public:
         Q_UNUSED(session)
         Q_UNUSED(mainWindow)
     }
+
+    /** Returns true if the plugin can reconnect the given session (SSH is still active). */
+    virtual bool canReconnectSession(Konsole::Session *session) const
+    {
+        Q_UNUSED(session)
+        return false;
+    }
+
+    /** Reconnect the session in the same tab (terminate active SSH first if needed). */
+    virtual void reconnectSession(Konsole::Session *session, Konsole::MainWindow *mainWindow)
+    {
+        Q_UNUSED(session)
+        Q_UNUSED(mainWindow)
+    }
+
+Q_SIGNALS:
+    void sshStateChanged(Konsole::Session *session, int state);
 
 protected:
     void setName(const QString &pluginName);

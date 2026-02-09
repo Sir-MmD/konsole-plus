@@ -583,6 +583,20 @@ void ViewManager::duplicateSession(int tabIdx)
     Q_EMIT duplicateSessionRequest(display->sessionController()->session());
 }
 
+void ViewManager::reconnectSession(int tabIdx)
+{
+    auto *splitter = _viewContainer->viewSplitterAt(tabIdx);
+    if (!splitter) {
+        return;
+    }
+    auto *display = splitter->activeTerminalDisplay();
+    if (!display || !display->sessionController()) {
+        return;
+    }
+
+    Q_EMIT reconnectSessionRequest(display->sessionController()->session());
+}
+
 void ViewManager::semanticSetupBash()
 {
     int currentSessionId = currentSession();
@@ -1023,6 +1037,7 @@ TabbedViewContainer *ViewManager::createContainer()
     container->setNavigationVisibility(_navigationVisibility);
     connect(container, &TabbedViewContainer::detachTab, this, &ViewManager::detachTab);
     connect(container, &TabbedViewContainer::duplicateSession, this, &ViewManager::duplicateSession);
+    connect(container, &TabbedViewContainer::reconnectSession, this, &ViewManager::reconnectSession);
     connect(container, &TabbedViewContainer::tabContextMenuAboutToShow, this, [this, container](int tabIdx) {
         auto *splitter = container->viewSplitterAt(tabIdx);
         if (splitter) {
@@ -1818,6 +1833,13 @@ void ViewManager::unregisterTerminal(TerminalDisplay *terminal)
 {
     disconnect(terminal, &TerminalDisplay::requestToggleExpansion, nullptr, nullptr);
     disconnect(terminal, &TerminalDisplay::requestMoveToNewTab, nullptr, nullptr);
+}
+
+void ViewManager::updateSshState(Session *session, int state)
+{
+    if (_viewContainer) {
+        _viewContainer->updateSshState(session, state);
+    }
 }
 
 #include "moc_ViewManager.cpp"

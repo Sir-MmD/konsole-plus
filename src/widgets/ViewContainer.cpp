@@ -13,6 +13,7 @@
 #include <QFile>
 #include <QKeyEvent>
 #include <QMenu>
+#include <QPainter>
 #include <QTabBar>
 
 // KDE
@@ -36,6 +37,28 @@
 // TODO Perhaps move everything which is Konsole-specific into different files
 
 using namespace Konsole;
+
+static QIcon sshStateIcon(int state)
+{
+    const int size = 16;
+    QPixmap pix(size, size);
+    pix.fill(Qt::transparent);
+    QPainter p(&pix);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setPen(Qt::NoPen);
+    QColor color;
+    switch (state) {
+    case 0: color = QColor(140, 140, 140, 120); break; // NoSsh: gray
+    case 1: color = QColor(0xf0, 0xa0, 0x30);   break; // Connecting: orange
+    case 2: color = QColor(0x2e, 0xcc, 0x40);   break; // Connected: green
+    case 3: color = QColor(0xe7, 0x4c, 0x3c);   break; // Disconnected: red
+    default: return QIcon();
+    }
+    p.setBrush(color);
+    p.drawEllipse(2, 2, size - 4, size - 4);
+    p.end();
+    return QIcon(pix);
+}
 
 TabbedViewContainer::TabbedViewContainer(ViewManager *connectedViewManager, QWidget *parent)
     : QTabWidget(parent)
@@ -112,6 +135,12 @@ TabbedViewContainer::TabbedViewContainer(ViewManager *connectedViewManager, QWid
             Q_EMIT duplicateSession(_contextMenuTabIndex);
         });
     _duplicateSessionAction->setObjectName(QStringLiteral("duplicate-session"));
+
+    _reconnectSessionAction =
+        _contextPopupMenu->addAction(QIcon::fromTheme(QStringLiteral("view-refresh")), i18nc("@action:inmenu", "&Reconnect"), this, [this] {
+            Q_EMIT reconnectSession(_contextMenuTabIndex);
+        });
+    _reconnectSessionAction->setObjectName(QStringLiteral("reconnect-session"));
 
     auto editAction =
         _contextPopupMenu->addAction(QIcon::fromTheme(QStringLiteral("edit-rename")), i18nc("@action:inmenu", "&Configure or Rename Tab..."), this, [this] {
@@ -374,7 +403,7 @@ void TabbedViewContainer::addView(TerminalDisplay *view)
     viewSplitter->addTerminalDisplay(view, Qt::Horizontal);
     auto item = view->sessionController();
     int index = _newTabBehavior == PutNewTabAfterCurrentTab ? currentIndex() + 1 : -1;
-    index = insertTab(index, viewSplitter, item->icon(), item->title());
+    index = insertTab(index, viewSplitter, sshStateIcon(0), item->title());
 
     connectTerminalDisplay(view);
     connect(viewSplitter, &ViewSplitter::destroyed, this, &TabbedViewContainer::viewDestroyed);
@@ -537,8 +566,9 @@ void TabbedViewContainer::openTabContextMenu(const QPoint &point)
         }
     }
 
-    // Default to disabled; listeners update via setDuplicateSessionEnabled()
+    // Default to disabled; listeners update via setDuplicateSessionEnabled/setReconnectSessionEnabled
     _duplicateSessionAction->setEnabled(false);
+    _reconnectSessionAction->setEnabled(false);
     Q_EMIT tabContextMenuAboutToShow(_contextMenuTabIndex);
 
     _contextPopupMenu->exec(tabBar()->mapToGlobal(point));
@@ -642,7 +672,9 @@ void TabbedViewContainer::updateIcon(ViewProperties *item)
     //    the status
     // 3. Active view icon
 
-    QIcon icon = item->icon();
+    // When notifications/states are active, show their icon.
+    // Otherwise restore the SSH status circle (or gray for local).
+    QIcon icon;
     if (state.notification != Session::NoNotification) {
         switch (state.notification) {
         case Session::Bell: {
@@ -665,11 +697,13 @@ void TabbedViewContainer::updateIcon(ViewProperties *item)
         icon = QIcon::fromTheme(QLatin1String("irc-voice"));
     } else if (state.readOnly) {
         icon = QIcon::fromTheme(QLatin1String("object-locked"));
+    } else {
+        // Restore SSH status circle
+        int sshState = _tabSshState.value(topLevelSplitter, 0);
+        icon = sshStateIcon(sshState);
     }
 
-    if (tabIcon(index).name() != icon.name()) {
-        setTabIcon(index, icon);
-    }
+    setTabIcon(index, icon);
 }
 
 void TabbedViewContainer::updateActivity(ViewProperties *item)
@@ -820,11 +854,34 @@ void TabbedViewContainer::setDuplicateSessionEnabled(bool enabled)
     _duplicateSessionAction->setEnabled(enabled);
 }
 
+void TabbedViewContainer::setReconnectSessionEnabled(bool enabled)
+{
+    _reconnectSessionAction->setEnabled(enabled);
+}
+
 void TabbedViewContainer::moveToNewTab(TerminalDisplay *display)
 {
     // Ensure that the current terminal is not maximized so that the other views will be shown properly
     activeViewSplitter()->clearMaximized();
     addView(display);
+}
+
+void TabbedViewContainer::updateSshState(Session *session, int state)
+{
+    for (int i = 0; i < count(); i++) {
+        auto *splitter = viewSplitterAt(i);
+        if (!splitter) {
+            continue;
+        }
+        const auto displays = splitter->findChildren<TerminalDisplay *>();
+        for (auto *display : displays) {
+            if (display->sessionController() && display->sessionController()->session() == session) {
+                _tabSshState[splitter] = state;
+                setTabIcon(i, sshStateIcon(state));
+                return;
+            }
+        }
+    }
 }
 
 #include "moc_ViewContainer.cpp"
