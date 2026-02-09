@@ -102,6 +102,36 @@ SSHManagerTreeWidget::SSHManagerTreeWidget(QWidget *parent)
         d->filterModel->invalidate();
     });
 
+    connect(ui->quickConnect, &QLineEdit::returnPressed, this, [this] {
+        const QString text = ui->quickConnect->text().trimmed();
+        if (text.isEmpty()) {
+            return;
+        }
+
+        SSHConfigurationData data;
+        QString hostPart = text;
+
+        // Split user@hostpart
+        const int atPos = text.indexOf(QLatin1Char('@'));
+        if (atPos > 0) {
+            data.username = text.left(atPos);
+            hostPart = text.mid(atPos + 1);
+        }
+
+        // Split host:port
+        const int colonPos = hostPart.lastIndexOf(QLatin1Char(':'));
+        if (colonPos > 0) {
+            data.host = hostPart.left(colonPos);
+            data.port = hostPart.mid(colonPos + 1);
+        } else {
+            data.host = hostPart;
+        }
+
+        data.name = text;
+        ui->quickConnect->clear();
+        Q_EMIT requestQuickConnection(data, d->controller);
+    });
+
     connect(Konsole::ProfileModel::instance(), &Konsole::ProfileModel::rowsRemoved, this, &SSHManagerTreeWidget::updateProfileList);
     connect(Konsole::ProfileModel::instance(), &Konsole::ProfileModel::rowsInserted, this, &SSHManagerTreeWidget::updateProfileList);
     updateProfileList();

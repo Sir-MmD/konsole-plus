@@ -100,6 +100,7 @@ void SSHManagerPlugin::createWidgetsForMainWindow(Konsole::MainWindow *mainWindo
     });
     
     connect(managerWidget, &SSHManagerTreeWidget::requestConnection, this, &SSHManagerPlugin::requestConnection);
+    connect(managerWidget, &SSHManagerTreeWidget::requestQuickConnection, this, &SSHManagerPlugin::handleQuickConnection);
 
     connect(managerWidget, &SSHManagerTreeWidget::quickAccessShortcutChanged, this, [this, mainWindow](QKeySequence s) {
         mainWindow->actionCollection()->setDefaultShortcut(d->showQuickAccess, s);
@@ -245,6 +246,53 @@ void SSHManagerPlugin::requestConnection(const QModelIndex &idx, Konsole::Sessio
     }
 #else
     // FIXME: Can we do this on windows?
+#endif
+
+    startConnection(data, controller);
+}
+
+void SSHManagerPlugin::handleQuickConnection(const SSHConfigurationData &data, Konsole::SessionController *controller)
+{
+    if (!controller) {
+        return;
+    }
+
+#ifndef Q_OS_WIN
+    bool shellIsIdle = false;
+    Konsole::ProcessInfo *info = controller->session()->getProcessInfo();
+    bool ok = false;
+    if (info) {
+        QString processName = info->name(&ok);
+        if (ok) {
+            const QStringList shells = {QStringLiteral("fish"),
+                                        QStringLiteral("bash"),
+                                        QStringLiteral("dash"),
+                                        QStringLiteral("sh"),
+                                        QStringLiteral("csh"),
+                                        QStringLiteral("ksh"),
+                                        QStringLiteral("zsh")};
+            shellIsIdle = shells.contains(processName);
+        }
+    }
+
+    if (!shellIsIdle) {
+        Konsole::MainWindow *mainWindow = d->currentMainWindow;
+        if (!mainWindow && controller->view()) {
+            mainWindow = qobject_cast<Konsole::MainWindow *>(controller->view()->window());
+        }
+        if (mainWindow) {
+            mainWindow->newTab();
+            auto *viewManager = mainWindow->viewManager();
+            auto *newController = viewManager->activeViewController();
+            if (newController && newController != controller) {
+                connect(newController->session(), &Konsole::Session::started, this,
+                        [this, data, newController]() {
+                            startConnection(data, newController);
+                        }, Qt::SingleShotConnection);
+            }
+        }
+        return;
+    }
 #endif
 
     startConnection(data, controller);
@@ -444,46 +492,74 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
     controller->session()->setTabTitleFormat(Konsole::Session::RemoteTabTitle, tabTitle);
     controller->session()->tabTitleSetByUser(true);
 
-    // Hide the SSH command from the user entirely.
-    // We disable PTY echo so the typed command line is not displayed,
-    // then send a single compound command that:
-    // - clears the screen to remove the shell prompt
-    // - prints "Connecting to <name>..." (without newline)
-    // - runs the SSH command with stderr suppressed
-    // - on success: prints green "OK" (via ssh's LocalCommand, runs after auth)
-    // - on failure: prints red "FAILED" and stays on that line (no error spam)
-    // The leading space prevents the command from being saved in shell history.
-    //
-    // LocalCommand is executed by ssh right after successful authentication,
-    // so "OK" appears before the remote shell prompt. If ssh fails (connection
-    // refused, auth error, etc.), it exits with non-zero and the shell prints
-    // "FAILED" instead. stderr is redirected to /dev/null to hide ssh's own
-    // error messages (the user only sees our clean "FAILED").
-    const QString greenOk = QStringLiteral("printf ' \\033[32mOK\\033[0m\\n'");
+    // SSH -E logs errors to a file without redirecting stderr, so the
+    // password prompt appears normally. On failure, the log is parsed
+    // for a specific reason. Leading space keeps it out of shell history.
+    const QString sshErrLog = QStringLiteral("/tmp/konsole_ssh_err_%1.log")
+        .arg(QUuid::createUuid().toString(QUuid::Id128));
+
+    const QString greenOk = QStringLiteral("printf '\\033[32mOK\\033[0m\\n'");
     const QString localCmdOpts = QStringLiteral("-o PermitLocalCommand=yes -o LocalCommand=\"%1\" ").arg(greenOk);
 
-    // Insert the LocalCommand options into the ssh arguments
-    // sshCommand starts with "ssh " or "sshpass ... ssh ", find "ssh " and insert after it
+    const QString sshOpts = QStringLiteral("-E '%1' ").arg(sshErrLog) + localCmdOpts;
     int sshPos = sshCommand.lastIndexOf(QStringLiteral("ssh "));
     if (sshPos >= 0) {
-        sshCommand.insert(sshPos + 4, localCmdOpts);
+        sshCommand.insert(sshPos + 4, sshOpts);
     }
 
-    const QString redFailed = QStringLiteral("printf ' \\033[31mFAILED\\033[0m\\n'");
-    // Run ssh with stderr hidden; if it fails (non-zero exit), print FAILED
-    QString wrappedCommand = QStringLiteral(" clear; printf 'Connecting to %1...'; %2 2>/dev/null || { %3; exec bash; }")
-        .arg(tabTitle, sshCommand, redFailed);
+    // Write the command to a temp script so only a short ". /tmp/..." is sent
+    // through the PTY — prevents the long command from leaking through echo.
+    const QString scriptPath = QStringLiteral("/tmp/konsole_ssh_cmd_%1.sh")
+        .arg(QUuid::createUuid().toString(QUuid::Id128));
+
+    QString script;
+    script += QStringLiteral("clear; printf 'Connecting to %1...\\n'; ").arg(tabTitle);
+    script += sshCommand;
+    script += QStringLiteral(" || { printf ' \\033[31mFAILED\\033[0m\\n';");
+    script += QStringLiteral(" _e=$(cat '%1');").arg(sshErrLog);
+    script += QStringLiteral(
+        " case \"$_e\" in"
+        "  *'Permission denied'*)      _r='Authentication failed (wrong password or key)';;"
+        "  *'Connection refused'*)      _r='Connection refused (host is not accepting SSH)';;"
+        "  *'Connection timed out'*)    _r='Connection timed out';;"
+        "  *'No route to host'*)        _r='No route to host (network unreachable)';;"
+        "  *'Could not resolve'*)       _r='Could not resolve hostname';;"
+        "  *'Host key verification'*)   _r='Host key verification failed';;"
+        "  *'Connection reset'*)        _r='Connection reset by remote host';;"
+        "  *'Network is unreachable'*)  _r='Network is unreachable';;"
+        "  *'Connection closed'*)       _r='Connection closed by remote host';;"
+        "  *'incorrect password'*|*'Wrong passphrase'*) _r='Incorrect password or passphrase';;"
+        "  *)                           _r=\"$_e\";;"
+        " esac;");
+    script += QStringLiteral(" [ -n \"$_r\" ] && echo -e '  \\033[33m'\"$_r\"'\\033[0m';");
+    script += QStringLiteral(" rm -f '%1' '%2'; exec bash; };").arg(sshErrLog, scriptPath);
+    script += QStringLiteral(" rm -f '%1' '%2'\n").arg(sshErrLog, scriptPath);
+
+    QFile scriptFile(scriptPath);
+    if (scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        scriptFile.write(script.toUtf8());
+        scriptFile.close();
+        scriptFile.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+    }
+
+    const QString wrappedCommand = QStringLiteral(" . %1").arg(scriptPath);
 
     QPointer<Konsole::Session> session = controller->session();
     session->setEchoEnabled(false);
     session->sendTextToTerminal(wrappedCommand, QLatin1Char('\r'));
 
-    // Re-enable echo after SSH starts (the remote shell manages its own echo)
-    QTimer::singleShot(500, controller->session(), [session]() {
+    // Keep forcing echo ON every 500ms so that SSH password prompts show
+    // typed characters. SSH turns echo off for password reads via /dev/tty;
+    // this timer counteracts that. Stops when the session finishes.
+    auto *echoTimer = new QTimer(controller->session());
+    echoTimer->setInterval(500);
+    connect(echoTimer, &QTimer::timeout, controller->session(), [session]() {
         if (session) {
             session->setEchoEnabled(true);
         }
     });
+    connect(controller->session(), &Konsole::Session::finished, echoTimer, &QTimer::stop);
+    echoTimer->start();
 
     // Track this session so it can be duplicated from the tab context menu.
     d->activeSessionData[controller->session()] = data;

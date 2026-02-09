@@ -66,6 +66,7 @@ public:
 
     Q_SIGNAL void requestNewTab();
     Q_SIGNAL void requestConnection(const QModelIndex &idx, Konsole::SessionController *controller);
+    Q_SIGNAL void requestQuickConnection(const SSHConfigurationData &data, Konsole::SessionController *controller);
 
     void setEditComponentsEnabled(bool enabled);
 
