@@ -100,6 +100,7 @@ TabbedViewContainer::TabbedViewContainer(ViewManager *connectedViewManager, QWid
     connect(tabBarWidget, &DetachableTabBar::detachTab, this, [this](int idx) {
         Q_EMIT detachTab(idx);
     });
+    connect(tabBarWidget, &DetachableTabBar::tabDroppedToOtherBar, this, &TabbedViewContainer::tabMovedFromOtherContainer);
     connect(tabBarWidget, &DetachableTabBar::closeTab, this, &TabbedViewContainer::closeTerminalTab);
     connect(tabBarWidget, &DetachableTabBar::newTabRequest, this, [this] {
         Q_EMIT newViewRequest();
@@ -547,6 +548,8 @@ void TabbedViewContainer::addView(TerminalDisplay *view)
     connectTerminalDisplay(view);
     connect(viewSplitter, &ViewSplitter::destroyed, this, &TabbedViewContainer::viewDestroyed);
     connect(viewSplitter, &ViewSplitter::terminalDisplayDropped, this, &TabbedViewContainer::terminalDisplayDropped);
+    connect(viewSplitter, &ViewSplitter::terminalDroppedToNewPane, this, &TabbedViewContainer::terminalDroppedToNewPane);
+    connect(viewSplitter, &ViewSplitter::tabDroppedToNewPane, this, &TabbedViewContainer::tabDroppedToNewPane);
 
     // Put this view on the foreground if it requests so, eg. on bell activity
     connect(view, &TerminalDisplay::activationRequest, this, &Konsole::TabbedViewContainer::activateView);
@@ -593,6 +596,11 @@ void TabbedViewContainer::disconnectTerminalDisplay(TerminalDisplay *display)
 {
     auto item = display->sessionController();
     item->disconnect(this);
+}
+
+int TabbedViewContainer::tabSshState(const QWidget *splitter) const
+{
+    return _tabSshState.value(splitter, 0);
 }
 
 void TabbedViewContainer::viewDestroyed(QObject *view)
@@ -914,8 +922,15 @@ void TabbedViewContainer::updateProgress(ViewProperties *item)
 
 void TabbedViewContainer::currentSessionControllerChanged(SessionController *controller)
 {
-    auto topLevelSplitter = qobject_cast<ViewSplitter *>(controller->view()->parentWidget())->getToplevelSplitter();
+    auto *parentSplitter = qobject_cast<ViewSplitter *>(controller->view()->parentWidget());
+    if (!parentSplitter) {
+        return;
+    }
+    auto topLevelSplitter = parentSplitter->getToplevelSplitter();
     const int index = indexOf(topLevelSplitter);
+    if (index < 0) {
+        return;
+    }
 
     if (index == currentIndex()) {
         // Active view changed in current tab - clear notifications

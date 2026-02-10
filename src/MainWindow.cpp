@@ -784,7 +784,10 @@ Session *MainWindow::createSession(Profile::Ptr profile, const QString &director
     // starts.  Some applications such as GNU Screen and Midnight Commander
     // don't like this happening
     auto newView = _viewManager->createView(session);
-    _viewManager->activeContainer()->addView(newView);
+    auto *container = _viewManager->activeContainer();
+    if (container) {
+        container->addView(newView);
+    }
 
     return session;
 }
@@ -1108,7 +1111,9 @@ void MainWindow::applyKonsoleSettings()
         removeMenuAccelerators();
     }
 
-    _viewManager->activeContainer()->setNavigationBehavior(KonsoleSettings::newTabBehavior());
+    for (auto *container : _viewManager->containers()) {
+        container->setNavigationBehavior(KonsoleSettings::newTabBehavior());
+    }
 
     // Save the toolbar/menu/dockwidget states and the window geometry
     setAutoSaveSettings();

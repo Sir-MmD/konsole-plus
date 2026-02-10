@@ -496,24 +496,43 @@ TerminalDisplay *currentDragTarget = nullptr;
 
 void Konsole::ViewSplitter::dragEnterEvent(QDragEnterEvent *ev)
 {
-    const auto dragId = QStringLiteral("konsole/terminal_display");
-    if (ev->mimeData()->hasFormat(dragId)) {
-        auto other_pid = ev->mimeData()->data(dragId).toInt();
-        // don't accept the drop if it's another instance of konsole
-        if (qApp->applicationPid() != other_pid) {
-            return;
-        }
-        if (getToplevelSplitter()->terminalMaximized()) {
-            return;
-        }
-        ev->accept();
+    const auto terminalDragId = QStringLiteral("konsole/terminal_display");
+    const auto tabDragId = QStringLiteral("konsole/tab");
+
+    QByteArray data;
+    if (ev->mimeData()->hasFormat(terminalDragId)) {
+        data = ev->mimeData()->data(terminalDragId);
+    } else if (ev->mimeData()->hasFormat(tabDragId)) {
+        data = ev->mimeData()->data(tabDragId);
+    } else {
+        return;
     }
+
+    auto pid = data.split(':').first().toInt();
+    if (pid != qApp->applicationPid()) {
+        return;
+    }
+    if (getToplevelSplitter()->terminalMaximized()) {
+        return;
+    }
+    ev->accept();
 }
 
 void Konsole::ViewSplitter::dragMoveEvent(QDragMoveEvent *ev)
 {
+    if (!ev->mimeData()->hasFormat(QStringLiteral("konsole/terminal_display"))
+        && !ev->mimeData()->hasFormat(QStringLiteral("konsole/tab"))) {
+        return;
+    }
+
     auto currentWidget = childAt(ev->position().toPoint());
-    if (auto terminal = qobject_cast<TerminalDisplay *>(currentWidget)) {
+    // Walk up widget hierarchy to find TerminalDisplay
+    TerminalDisplay *terminal = nullptr;
+    while (currentWidget && !terminal) {
+        terminal = qobject_cast<TerminalDisplay *>(currentWidget);
+        currentWidget = currentWidget->parentWidget();
+    }
+    if (terminal) {
         if ((currentDragTarget != nullptr) && currentDragTarget != terminal) {
             currentDragTarget->hideDragTarget();
         }
@@ -521,7 +540,7 @@ void Konsole::ViewSplitter::dragMoveEvent(QDragMoveEvent *ev)
             return;
         }
         currentDragTarget = terminal;
-        auto localPos = currentDragTarget->mapFromParent(ev->position().toPoint());
+        auto localPos = currentDragTarget->mapFrom(this, ev->position().toPoint());
         currentDragTarget->showDragTarget(localPos);
     }
 }
@@ -537,37 +556,33 @@ void Konsole::ViewSplitter::dragLeaveEvent(QDragLeaveEvent *event)
 
 void Konsole::ViewSplitter::dropEvent(QDropEvent *ev)
 {
+    if (getToplevelSplitter()->terminalMaximized()) {
+        return;
+    }
+
+    if (currentDragTarget == nullptr) {
+        return;
+    }
+
+    currentDragTarget->hideDragTarget();
+    const auto droppedEdge = currentDragTarget->droppedEdge();
+    Qt::Orientation orientation = droppedEdge == Qt::LeftEdge || droppedEdge == Qt::RightEdge ? Qt::Horizontal : Qt::Vertical;
+
     if (ev->mimeData()->hasFormat(QStringLiteral("konsole/terminal_display"))) {
-        if (getToplevelSplitter()->terminalMaximized()) {
-            return;
-        }
-        if (currentDragTarget != nullptr) {
-            m_blockPropagatedDeletion = true;
-
-            currentDragTarget->hideDragTarget();
-            auto source = qobject_cast<TerminalDisplay *>(ev->source());
-            source->setVisible(false);
-            source->setParent(nullptr);
-
-            currentDragTarget->setFocus(Qt::OtherFocusReason);
-            const auto droppedEdge = currentDragTarget->droppedEdge();
-
-            AddBehavior behavior = droppedEdge == Qt::LeftEdge || droppedEdge == Qt::TopEdge ? AddBehavior::AddBefore : AddBehavior::AddAfter;
-
-            Qt::Orientation orientation = droppedEdge == Qt::LeftEdge || droppedEdge == Qt::RightEdge ? Qt::Horizontal : Qt::Vertical;
-
-            // Add the display so it can be counted correctly by ViewManager
-            addTerminalDisplay(source, orientation, behavior);
-
-            // topLevel is the splitter that's connected with the ViewManager
-            // that in turn can call the SessionController.
-            Q_EMIT getToplevelSplitter()->terminalDisplayDropped(source);
-            source->setVisible(true);
-            currentDragTarget = nullptr;
-
-            m_blockPropagatedDeletion = false;
+        auto source = qobject_cast<TerminalDisplay *>(ev->source());
+        Q_EMIT getToplevelSplitter()->terminalDroppedToNewPane(source, orientation);
+    } else if (ev->mimeData()->hasFormat(QStringLiteral("konsole/tab"))) {
+        QByteArray payload = ev->mimeData()->data(QStringLiteral("konsole/tab"));
+        auto parts = payload.split(':');
+        if (parts.size() == 3) {
+            int sourceTabIndex = parts[1].toInt();
+            auto sourceContainer = reinterpret_cast<TabbedViewContainer *>(parts[2].toULongLong());
+            Q_EMIT getToplevelSplitter()->tabDroppedToNewPane(sourceTabIndex, sourceContainer, orientation);
+            ev->acceptProposedAction();
         }
     }
+
+    currentDragTarget = nullptr;
 }
 
 void Konsole::ViewSplitter::showEvent(QShowEvent *)

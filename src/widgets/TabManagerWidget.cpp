@@ -11,6 +11,8 @@
 #include <QTreeView>
 #include <QVBoxLayout>
 
+#include <KLocalizedString>
+
 #include "ViewContainer.h"
 #include "ViewManager.h"
 #include "ViewSplitter.h"
@@ -36,18 +38,39 @@ TabManagerWidget::TabManagerWidget(ViewManager *viewManager, QWidget *parent)
     m_treeView->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_treeView->setIndentation(16);
 
-    auto *container = m_viewManager->activeContainer();
-    if (container) {
-        connect(container, &TabbedViewContainer::viewAdded, this, &TabManagerWidget::onViewAdded);
-        connect(container, &TabbedViewContainer::viewRemoved, this, &TabManagerWidget::onViewRemoved);
-        connect(container, &TabbedViewContainer::activeViewChanged, this, &TabManagerWidget::onActiveViewChanged);
-        connect(container, &QTabWidget::tabBarDoubleClicked, this, [this](int) {
-            refresh();
-        });
+    // Connect to all existing containers
+    const auto containers = m_viewManager->containers();
+    for (auto *container : containers) {
+        connectContainer(container);
     }
+
+    connect(m_viewManager, &ViewManager::containerAdded, this, &TabManagerWidget::onContainerAdded);
+    connect(m_viewManager, &ViewManager::containerRemoved, this, &TabManagerWidget::onContainerRemoved);
 
     connect(m_treeView, &QTreeView::clicked, this, &TabManagerWidget::onItemClicked);
 
+    refresh();
+}
+
+void TabManagerWidget::connectContainer(TabbedViewContainer *container)
+{
+    connect(container, &TabbedViewContainer::viewAdded, this, &TabManagerWidget::onViewAdded, Qt::UniqueConnection);
+    connect(container, &TabbedViewContainer::viewRemoved, this, &TabManagerWidget::onViewRemoved, Qt::UniqueConnection);
+    connect(container, &TabbedViewContainer::activeViewChanged, this, &TabManagerWidget::onActiveViewChanged, Qt::UniqueConnection);
+    connect(container, &QTabWidget::tabBarDoubleClicked, this, [this](int) {
+        refresh();
+    });
+}
+
+void TabManagerWidget::onContainerAdded(TabbedViewContainer *container)
+{
+    connectContainer(container);
+    refresh();
+}
+
+void TabManagerWidget::onContainerRemoved(TabbedViewContainer *container)
+{
+    Q_UNUSED(container)
     refresh();
 }
 
@@ -55,49 +78,47 @@ void TabManagerWidget::refresh()
 {
     m_model->clear();
 
-    auto *container = m_viewManager->activeContainer();
-    if (!container) {
-        return;
-    }
+    const auto containers = m_viewManager->containers();
+    const bool multiPane = containers.count() > 1;
 
-    for (int i = 0; i < container->count(); i++) {
-        auto *splitter = container->viewSplitterAt(i);
-        if (!splitter) {
-            continue;
+    for (int ci = 0; ci < containers.count(); ci++) {
+        auto *container = containers[ci];
+        if (!container) continue;
+
+        QStandardItem *paneItem = nullptr;
+
+        // Only show pane-level items when there are multiple panes
+        if (multiPane) {
+            paneItem = new QStandardItem(i18n("Pane %1", ci + 1));
+            paneItem->setData(ci, ContainerIndexRole);
+            paneItem->setData(false, IsTabRole);
+            m_model->appendRow(paneItem);
         }
 
-        auto *tabItem = new QStandardItem(container->tabIcon(i), container->tabText(i));
-        tabItem->setData(i, TabIndexRole);
-        tabItem->setData(true, IsTabRole);
+        for (int i = 0; i < container->count(); i++) {
+            auto *splitter = container->viewSplitterAt(i);
+            if (!splitter) continue;
 
-        auto terminals = splitter->findChildren<TerminalDisplay *>();
+            auto *tabItem = new QStandardItem(container->tabIcon(i), container->tabText(i));
+            tabItem->setData(i, TabIndexRole);
+            tabItem->setData(ci, ContainerIndexRole);
+            tabItem->setData(true, IsTabRole);
 
-        // Only show child items if the tab has multiple terminals (splits)
-        if (terminals.count() > 1) {
-            for (auto *terminal : terminals) {
-                auto *controller = terminal->sessionController();
-                if (!controller) {
-                    continue;
+            auto terminals = splitter->findChildren<TerminalDisplay *>();
+            if (terminals.count() == 1) {
+                auto *controller = terminals.first()->sessionController();
+                if (controller) {
+                    connect(controller, &ViewProperties::titleChanged, this, &TabManagerWidget::onTitleChanged, Qt::UniqueConnection);
+                    connect(controller, &ViewProperties::iconChanged, this, &TabManagerWidget::onIconChanged, Qt::UniqueConnection);
                 }
-
-                auto *childItem = new QStandardItem(controller->icon(), controller->title());
-                childItem->setData(terminal->id(), TerminalIdRole);
-                childItem->setData(false, IsTabRole);
-                tabItem->appendRow(childItem);
-
-                connect(controller, &ViewProperties::titleChanged, this, &TabManagerWidget::onTitleChanged, Qt::UniqueConnection);
-                connect(controller, &ViewProperties::iconChanged, this, &TabManagerWidget::onIconChanged, Qt::UniqueConnection);
             }
-        } else if (terminals.count() == 1) {
-            // Single terminal — connect signals for title/icon updates on the tab itself
-            auto *controller = terminals.first()->sessionController();
-            if (controller) {
-                connect(controller, &ViewProperties::titleChanged, this, &TabManagerWidget::onTitleChanged, Qt::UniqueConnection);
-                connect(controller, &ViewProperties::iconChanged, this, &TabManagerWidget::onIconChanged, Qt::UniqueConnection);
+
+            if (paneItem) {
+                paneItem->appendRow(tabItem);
+            } else {
+                m_model->appendRow(tabItem);
             }
         }
-
-        m_model->appendRow(tabItem);
     }
 
     m_treeView->expandAll();
@@ -123,113 +144,48 @@ void TabManagerWidget::onActiveViewChanged(TerminalDisplay *view)
 
 void TabManagerWidget::onTitleChanged(ViewProperties *properties)
 {
-    auto *container = m_viewManager->activeContainer();
-    if (!container) {
-        return;
-    }
-
-    // Find which tab/terminal this property belongs to and update it
-    auto *controller = qobject_cast<SessionController *>(properties);
-    if (!controller || !controller->view()) {
-        return;
-    }
-
-    int terminalId = controller->view()->id();
-
-    // Check if it's a child terminal item
-    auto *childItem = findItemForTerminal(terminalId);
-    if (childItem) {
-        childItem->setText(properties->title());
-        return;
-    }
-
-    // It might be a single-terminal tab — find by tab index
-    for (int i = 0; i < container->count(); i++) {
-        auto *splitter = container->viewSplitterAt(i);
-        if (!splitter) {
-            continue;
-        }
-        auto terminals = splitter->findChildren<TerminalDisplay *>();
-        if (terminals.count() == 1 && terminals.first()->id() == terminalId) {
-            // Update tab text in container (the tab widget itself)
-            // The tree item text comes from container->tabText(), so refresh
-            if (i < m_model->rowCount()) {
-                m_model->item(i)->setText(container->tabText(i));
-            }
-            return;
-        }
-    }
+    Q_UNUSED(properties)
+    refresh();
 }
 
 void TabManagerWidget::onIconChanged(ViewProperties *properties)
 {
-    auto *container = m_viewManager->activeContainer();
-    if (!container) {
-        return;
-    }
-
-    auto *controller = qobject_cast<SessionController *>(properties);
-    if (!controller || !controller->view()) {
-        return;
-    }
-
-    int terminalId = controller->view()->id();
-
-    auto *childItem = findItemForTerminal(terminalId);
-    if (childItem) {
-        childItem->setIcon(properties->icon());
-        return;
-    }
-
-    // Single-terminal tab — update from container icon
-    for (int i = 0; i < container->count(); i++) {
-        auto *splitter = container->viewSplitterAt(i);
-        if (!splitter) {
-            continue;
-        }
-        auto terminals = splitter->findChildren<TerminalDisplay *>();
-        if (terminals.count() == 1 && terminals.first()->id() == terminalId) {
-            if (i < m_model->rowCount()) {
-                m_model->item(i)->setIcon(container->tabIcon(i));
-            }
-            return;
-        }
-    }
+    Q_UNUSED(properties)
+    refresh();
 }
 
 void TabManagerWidget::onItemClicked(const QModelIndex &index)
 {
-    if (!index.isValid()) {
-        return;
-    }
+    if (!index.isValid()) return;
 
     m_updatingSelection = true;
 
     bool isTab = index.data(IsTabRole).toBool();
+    int containerIdx = index.data(ContainerIndexRole).toInt();
 
-    auto *container = m_viewManager->activeContainer();
-    if (!container) {
+    const auto containers = m_viewManager->containers();
+    if (containerIdx < 0 || containerIdx >= containers.count()) {
         m_updatingSelection = false;
         return;
     }
 
+    auto *container = containers[containerIdx];
+
     if (isTab) {
         int tabIndex = index.data(TabIndexRole).toInt();
         container->setCurrentIndex(tabIndex);
+        // Focus a terminal in that tab
+        auto *splitter = container->viewSplitterAt(tabIndex);
+        if (splitter) {
+            auto *td = splitter->activeTerminalDisplay();
+            if (td) td->setFocus();
+        }
     } else {
-        int terminalId = index.data(TerminalIdRole).toInt();
-        // Find the terminal by walking all terminals in the container
-        const auto terminals = container->findChildren<TerminalDisplay *>();
-        for (auto *terminal : terminals) {
-            if (terminal->id() == terminalId) {
-                // Switch to the tab containing this terminal
-                auto *splitter = qobject_cast<ViewSplitter *>(terminal->parentWidget());
-                if (splitter) {
-                    container->setCurrentWidget(splitter->getToplevelSplitter());
-                }
-                terminal->setFocus();
-                break;
-            }
+        // Clicked on a pane item — focus the active terminal in that pane
+        auto *splitter = container->activeViewSplitter();
+        if (splitter) {
+            auto *td = splitter->activeTerminalDisplay();
+            if (td) td->setFocus();
         }
     }
 
@@ -238,32 +194,47 @@ void TabManagerWidget::onItemClicked(const QModelIndex &index)
 
 void TabManagerWidget::highlightActiveTab()
 {
-    if (m_updatingSelection) {
-        return;
-    }
+    if (m_updatingSelection) return;
 
-    auto *container = m_viewManager->activeContainer();
-    if (!container) {
-        return;
-    }
+    auto *activeContainer = m_viewManager->activeContainer();
+    if (!activeContainer) return;
 
-    int currentIdx = container->currentIndex();
-    if (currentIdx < 0 || currentIdx >= m_model->rowCount()) {
-        return;
-    }
+    const auto containers = m_viewManager->containers();
+    int containerIdx = containers.indexOf(activeContainer);
+    int currentTabIdx = activeContainer->currentIndex();
+
+    if (containerIdx < 0 || currentTabIdx < 0) return;
 
     m_updatingSelection = true;
-    QModelIndex modelIndex = m_model->index(currentIdx, 0);
-    m_treeView->setCurrentIndex(modelIndex);
+
+    // Find the matching model item
+    const bool multiPane = containers.count() > 1;
+    if (multiPane) {
+        // Pane items are top-level, tabs are children
+        if (containerIdx < m_model->rowCount()) {
+            auto *paneItem = m_model->item(containerIdx);
+            if (paneItem && currentTabIdx < paneItem->rowCount()) {
+                QModelIndex modelIndex = paneItem->child(currentTabIdx)->index();
+                m_treeView->setCurrentIndex(modelIndex);
+            }
+        }
+    } else {
+        // Tabs are top-level
+        if (currentTabIdx < m_model->rowCount()) {
+            QModelIndex modelIndex = m_model->index(currentTabIdx, 0);
+            m_treeView->setCurrentIndex(modelIndex);
+        }
+    }
+
     m_updatingSelection = false;
 }
 
 QStandardItem *TabManagerWidget::findItemForTerminal(int terminalId) const
 {
     for (int i = 0; i < m_model->rowCount(); i++) {
-        auto *tabItem = m_model->item(i);
-        for (int j = 0; j < tabItem->rowCount(); j++) {
-            auto *childItem = tabItem->child(j);
+        auto *item = m_model->item(i);
+        for (int j = 0; j < item->rowCount(); j++) {
+            auto *childItem = item->child(j);
             if (childItem && childItem->data(TerminalIdRole).toInt() == terminalId) {
                 return childItem;
             }

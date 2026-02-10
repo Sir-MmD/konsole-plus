@@ -22,10 +22,10 @@ class KConfigGroup;
 namespace Konsole
 {
 class ColorScheme;
+class PaneSplitter;
 class Profile;
 class Session;
 class SessionController;
-class TabbedViewContainer;
 class TabbedViewContainer;
 class TerminalDisplay;
 class ViewProperties;
@@ -177,6 +177,12 @@ public:
      */
     TabbedViewContainer *activeContainer();
 
+    /** Returns all TabbedViewContainer panes. */
+    QList<TabbedViewContainer *> containers() const;
+
+    /** Returns the PaneSplitter widget that holds all panes. */
+    PaneSplitter *paneSplitter() const;
+
     /** Update the SSH state indicator for the tab containing the given session. */
     void updateSshState(Session *session, int state);
 
@@ -254,6 +260,12 @@ Q_SIGNALS:
     void activationRequest(const QString &xdgActivationToken);
 
     void contextMenuAdditionalActionsChanged(const QList<QAction *> &extension);
+
+    /** Emitted when a new pane container is added (split) */
+    void containerAdded(TabbedViewContainer *container);
+
+    /** Emitted when a pane container is removed (last tab closed) */
+    void containerRemoved(TabbedViewContainer *container);
 
 public Q_SLOTS:
     /** DBus slot that returns the number of sessions in the current view. */
@@ -497,6 +509,10 @@ private Q_SLOTS:
 
     void toggleLineNumbers();
 
+    void handleTerminalDroppedToNewPane(TerminalDisplay *terminal, Qt::Orientation orientation);
+    void handleTabDroppedToNewPane(int sourceTabIndex, TabbedViewContainer *sourceContainer, Qt::Orientation orientation);
+    void handleTabMoveBetweenContainers(int sourceTabIndex, TabbedViewContainer *sourceContainer);
+
 private:
     Q_DISABLE_COPY(ViewManager)
 
@@ -515,6 +531,15 @@ private:
 
     // creates a new container which can hold terminal displays
     TabbedViewContainer *createContainer();
+
+    // connects signals from a container to ViewManager slots
+    void connectContainer(TabbedViewContainer *container);
+
+    // finds the TabbedViewContainer that is a parent of the given widget
+    TabbedViewContainer *containerForWidget(QWidget *widget) const;
+
+    // removes a pane container (called when its last tab closes)
+    void removeContainer(TabbedViewContainer *container);
 
     // creates a new terminal display
     TerminalDisplay *createTerminalDisplay();
@@ -537,7 +562,9 @@ private:
     void unregisterTerminal(TerminalDisplay *terminal);
 
 private:
-    QPointer<TabbedViewContainer> _viewContainer;
+    PaneSplitter *_paneSplitter;
+    QList<QPointer<TabbedViewContainer>> _containers;
+    QPointer<TabbedViewContainer> _activeContainer;
     QPointer<SessionController> _pluggedController;
 
     QHash<TerminalDisplay *, Session *> _sessionMap;

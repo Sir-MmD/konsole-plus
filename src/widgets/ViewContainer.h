@@ -151,6 +151,7 @@ public:
 
     void connectTerminalDisplay(TerminalDisplay *display);
     void disconnectTerminalDisplay(TerminalDisplay *display);
+    int tabSshState(const QWidget *splitter) const;
     void moveTabLeft();
     void moveTabRight();
 
@@ -245,6 +246,15 @@ Q_SIGNALS:
 
     /** set the tab progress */
     void setProgress(int idx, const std::optional<int> &progress);
+
+    /** a terminal was dropped to create a new pane */
+    void terminalDroppedToNewPane(TerminalDisplay *terminalDisplay, Qt::Orientation orientation);
+
+    /** a tab was dropped to create a new pane */
+    void tabDroppedToNewPane(int sourceTabIndex, TabbedViewContainer *sourceContainer, Qt::Orientation orientation);
+
+    /** a tab was dropped on this container's tab bar from another container */
+    void tabMovedFromOtherContainer(int sourceTabIndex, TabbedViewContainer *sourceContainer);
 
     /** set the activity color tab */
     void setActivityColor(int index, const QColor &color);

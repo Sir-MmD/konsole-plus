@@ -30,6 +30,7 @@ public:
         TabIndexRole = Qt::UserRole + 1,
         TerminalIdRole,
         IsTabRole,
+        ContainerIndexRole,
     };
 
     explicit TabManagerWidget(ViewManager *viewManager, QWidget *parent = nullptr);
@@ -43,8 +44,11 @@ private Q_SLOTS:
     void onTitleChanged(ViewProperties *properties);
     void onIconChanged(ViewProperties *properties);
     void onItemClicked(const QModelIndex &index);
+    void onContainerAdded(TabbedViewContainer *container);
+    void onContainerRemoved(TabbedViewContainer *container);
 
 private:
+    void connectContainer(TabbedViewContainer *container);
     void highlightActiveTab();
     QStandardItem *findItemForTerminal(int terminalId) const;
 

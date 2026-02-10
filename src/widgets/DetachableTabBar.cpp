@@ -9,6 +9,7 @@
 #include "widgets/ViewContainer.h"
 
 #include <QApplication>
+#include <QDrag>
 #include <QMimeData>
 #include <QMouseEvent>
 
@@ -19,6 +20,10 @@
 
 namespace Konsole
 {
+
+static const QString tabMimeType = QStringLiteral("konsole/tab");
+static const QString terminalMimeType = QStringLiteral("konsole/terminal_display");
+
 DetachableTabBar::DetachableTabBar(QWidget *parent)
     : QTabBar(parent)
     , dragType(DragType::NONE)
@@ -88,34 +93,71 @@ void DetachableTabBar::middleMouseButtonClickAt(const QPoint &pos)
 void DetachableTabBar::mousePressEvent(QMouseEvent *event)
 {
     QTabBar::mousePressEvent(event);
+    if (event->button() == Qt::LeftButton) {
+        m_dragStartPos = event->pos();
+        m_draggingTabIndex = tabAt(event->pos());
+        m_dragInitiated = false;
+    }
     _containers = window()->findChildren<Konsole::TabbedViewContainer *>();
 }
 
 void DetachableTabBar::mouseMoveEvent(QMouseEvent *event)
 {
-    QTabBar::mouseMoveEvent(event);
-    auto widgetAtPos = qApp->topLevelAt(event->globalPosition().toPoint());
-    if (widgetAtPos != nullptr) {
-        if (window() == widgetAtPos->window()) {
-            if (dragType != DragType::NONE) {
-                dragType = DragType::NONE;
-                setCursor(_originalCursor);
+    if (m_draggingTabIndex >= 0 && !m_dragInitiated
+        && (event->pos() - m_dragStartPos).manhattanLength() > QApplication::startDragDistance()) {
+        m_dragInitiated = true;
+
+        auto *drag = new QDrag(this);
+        auto *mimeData = new QMimeData();
+
+        // Encode: PID:tabIndex:containerPtr
+        auto *container = qobject_cast<TabbedViewContainer *>(parentWidget());
+        QByteArray payload;
+        payload.append(QByteArray::number(qApp->applicationPid()));
+        payload.append(':');
+        payload.append(QByteArray::number(m_draggingTabIndex));
+        payload.append(':');
+        payload.append(QByteArray::number(reinterpret_cast<quintptr>(container)));
+
+        mimeData->setData(tabMimeType, payload);
+        drag->setMimeData(mimeData);
+
+        // Use tab text as drag pixmap label
+        QPixmap pixmap(tabRect(m_draggingTabIndex).size());
+        pixmap.fill(Qt::transparent);
+        QPainter p(&pixmap);
+        p.setPen(palette().text().color());
+        p.drawText(pixmap.rect(), Qt::AlignCenter, tabText(m_draggingTabIndex));
+        p.end();
+        drag->setPixmap(pixmap);
+
+        Qt::DropAction result = drag->exec(Qt::MoveAction);
+
+        // If drag was not accepted by any drop target, handle detach/move-to-window
+        if (result == Qt::IgnoreAction) {
+            auto globalPos = QCursor::pos();
+            auto widgetAtPos = qApp->topLevelAt(globalPos);
+            if (widgetAtPos == nullptr) {
+                // Dropped outside any window — detach
+                if (count() > 1) {
+                    Q_EMIT detachTab(m_draggingTabIndex);
+                }
+            } else if (window() != widgetAtPos->window()) {
+                // Dropped on another Konsole window
+                if (_containers.size() == 1 || count() > 1) {
+                    Q_EMIT moveTabToWindow(m_draggingTabIndex, widgetAtPos);
+                }
             }
-        } else {
-            if (dragType != DragType::WINDOW) {
-                dragType = DragType::WINDOW;
-                setCursor(QCursor(Qt::DragMoveCursor));
-            }
         }
-    } else if (!contentsRect().adjusted(-30, -30, 30, 30).contains(event->pos())) {
-        // Don't let it detach the last tab.
-        if (count() == 1) {
-            return;
-        }
-        if (dragType != DragType::OUTSIDE) {
-            dragType = DragType::OUTSIDE;
-            setCursor(QCursor(Qt::DragCopyCursor));
-        }
+
+        m_draggingTabIndex = -1;
+        m_dragInitiated = false;
+        setCursor(_originalCursor);
+        return;
+    }
+
+    if (!m_dragInitiated) {
+        QTabBar::mouseMoveEvent(event);
     }
 }
 
@@ -134,29 +176,13 @@ void DetachableTabBar::mouseReleaseEvent(QMouseEvent *event)
             Q_EMIT newTabRequest();
         }
         break;
-    case Qt::LeftButton:
-        _containers = window()->findChildren<Konsole::TabbedViewContainer *>();
-        break;
     default:
         break;
     }
 
+    m_draggingTabIndex = -1;
+    m_dragInitiated = false;
     setCursor(_originalCursor);
-
-    if (contentsRect().adjusted(-30, -30, 30, 30).contains(event->pos())) {
-        return;
-    }
-
-    auto widgetAtPos = qApp->topLevelAt(event->globalPosition().toPoint());
-    if (widgetAtPos == nullptr) {
-        if (count() != 1) {
-            Q_EMIT detachTab(currentIndex());
-        }
-    } else if (window() != widgetAtPos->window()) {
-        if (_containers.size() == 1 || count() > 1) {
-            Q_EMIT moveTabToWindow(currentIndex(), widgetAtPos);
-        }
-    }
 }
 
 void DetachableTabBar::mouseDoubleClickEvent(QMouseEvent *event)
@@ -168,23 +194,57 @@ void DetachableTabBar::mouseDoubleClickEvent(QMouseEvent *event)
 
 void DetachableTabBar::dragEnterEvent(QDragEnterEvent *event)
 {
-    const auto dragId = QStringLiteral("konsole/terminal_display");
-    if (!event->mimeData()->hasFormat(dragId)) {
-        return;
+    if (event->mimeData()->hasFormat(tabMimeType) || event->mimeData()->hasFormat(terminalMimeType)) {
+        // Validate same PID
+        QByteArray data;
+        if (event->mimeData()->hasFormat(tabMimeType)) {
+            data = event->mimeData()->data(tabMimeType);
+        } else {
+            data = event->mimeData()->data(terminalMimeType);
+        }
+        auto pid = data.split(':').first().toInt();
+        if (pid == qApp->applicationPid()) {
+            event->acceptProposedAction();
+        }
     }
-    auto other_pid = event->mimeData()->data(dragId).toInt();
-    // don't accept the drop if it's another instance of konsole
-    if (qApp->applicationPid() != other_pid) {
-        return;
-    }
-    event->accept();
 }
 
 void DetachableTabBar::dragMoveEvent(QDragMoveEvent *event)
 {
-    int tabIdx = tabAt(event->position().toPoint());
-    if (tabIdx != -1) {
-        setCurrentIndex(tabIdx);
+    if (event->mimeData()->hasFormat(tabMimeType)) {
+        int tabIdx = tabAt(event->position().toPoint());
+        if (tabIdx != -1) {
+            setCurrentIndex(tabIdx);
+        }
+        event->acceptProposedAction();
+    } else if (event->mimeData()->hasFormat(terminalMimeType)) {
+        int tabIdx = tabAt(event->position().toPoint());
+        if (tabIdx != -1) {
+            setCurrentIndex(tabIdx);
+        }
+    }
+}
+
+void DetachableTabBar::dropEvent(QDropEvent *event)
+{
+    if (event->mimeData()->hasFormat(tabMimeType)) {
+        QByteArray payload = event->mimeData()->data(tabMimeType);
+        auto parts = payload.split(':');
+        if (parts.size() != 3) {
+            return;
+        }
+
+        int sourceTabIndex = parts[1].toInt();
+        auto sourceContainerPtr = reinterpret_cast<TabbedViewContainer *>(parts[2].toULongLong());
+
+        auto *targetContainer = qobject_cast<TabbedViewContainer *>(parentWidget());
+
+        if (sourceContainerPtr != targetContainer) {
+            // Tab dropped from a different pane — move it here
+            Q_EMIT tabDroppedToOtherBar(sourceTabIndex, sourceContainerPtr);
+            event->acceptProposedAction();
+        }
+        // Same container drops are handled by QTabBar's built-in reorder
     }
 }
 

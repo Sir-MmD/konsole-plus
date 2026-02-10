@@ -21,6 +21,7 @@ class QDragLeaveEvent;
 
 namespace Konsole
 {
+class TabbedViewContainer;
 class TerminalDisplay;
 
 class ViewSplitterHandle : public QSplitterHandle
@@ -175,6 +176,8 @@ protected:
 
 Q_SIGNALS:
     void terminalDisplayDropped(TerminalDisplay *terminalDisplay);
+    void terminalDroppedToNewPane(TerminalDisplay *terminalDisplay, Qt::Orientation orientation);
+    void tabDroppedToNewPane(int sourceTabIndex, TabbedViewContainer *sourceContainer, Qt::Orientation orientation);
 
 private:
     /** recursively walks the object tree looking for Splitters and

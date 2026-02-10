@@ -47,6 +47,7 @@ Q_SIGNALS:
     void moveTabToWindow(int tabIndex, QWidget *otherWindow);
     void closeTab(int index);
     void newTabRequest();
+    void tabDroppedToOtherBar(int sourceTabIndex, TabbedViewContainer *sourceContainer);
 
 protected:
     void middleMouseButtonClickAt(const QPoint &pos);
@@ -56,6 +57,7 @@ protected:
     void mouseDoubleClickEvent(QMouseEvent *event) override;
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dragMoveEvent(QDragMoveEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
 
 private:
@@ -66,6 +68,9 @@ private:
     QList<TabbedViewContainer *> _containers;
     int tabId;
     QColor _activityColor;
+    QPoint m_dragStartPos;
+    int m_draggingTabIndex = -1;
+    bool m_dragInitiated = false;
 };
 }
 
