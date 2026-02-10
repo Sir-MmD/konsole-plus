@@ -84,6 +84,8 @@
 
 #include "widgets/EditProfileDialog.h"
 #include "widgets/IncrementalSearchBar.h"
+#include "widgets/ViewContainer.h"
+#include "widgets/ViewSplitter.h"
 
 #include "terminalDisplay/TerminalColor.h"
 #include "terminalDisplay/TerminalDisplay.h"
@@ -1206,6 +1208,26 @@ void SessionController::closeSession()
 {
     if (_preventClose) {
         return;
+    }
+
+    // Check if the tab containing this session is locked
+    if (view()) {
+        QWidget *w = view()->parentWidget();
+        while (w) {
+            if (auto *container = qobject_cast<TabbedViewContainer *>(w)) {
+                int idx = container->indexOf(view()->parentWidget());
+                // Walk up to find the top-level splitter
+                auto *splitter = qobject_cast<ViewSplitter *>(view()->parentWidget());
+                if (splitter) {
+                    idx = container->indexOf(splitter->getToplevelSplitter());
+                }
+                if (idx >= 0 && container->isTabLocked(idx)) {
+                    return;
+                }
+                break;
+            }
+            w = w->parentWidget();
+        }
     }
 
     if (!confirmClose()) {

@@ -34,6 +34,10 @@ public:
 
     // Remote filesystem mount (rclone)
     bool enableSshfs = false;
+
+    // Tab appearance
+    QString tabIcon;   // icon theme name (e.g. "network-server"), empty = default
+    QString tabColor;  // color name or hex (e.g. "#ff0000"), empty = none
 };
 
 Q_DECLARE_METATYPE(SSHConfigurationData)

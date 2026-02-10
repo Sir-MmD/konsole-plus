@@ -254,6 +254,8 @@ set(konsoleprivate_SRCS ${windowadaptors_SRCS}
 
                         widgets/TerminalDisplayAccessible.cpp
                         widgets/TerminalHeaderBar.cpp
+                        widgets/ComposeBarWidget.cpp
+                        widgets/TabManagerWidget.cpp
                         widgets/ViewContainer.cpp
                         widgets/ViewSplitter.cpp
                         widgets/KonsolePrintManager.cpp

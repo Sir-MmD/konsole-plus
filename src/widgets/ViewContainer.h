@@ -178,6 +178,18 @@ public:
     /** Update the SSH state indicator for the tab containing the given session. */
     void updateSshState(Session *session, int state);
 
+    /** Returns true if the tab at the given index is locked. */
+    bool isTabLocked(int index) const;
+
+    /** Set compose bar broadcast mode — shows broadcast icon on all tabs. */
+    void setComposeBroadcast(bool enabled);
+
+    /** Set a custom icon on the tab at @p index. */
+    void setTabCustomIcon(int index, const QIcon &icon);
+
+    /** Set a color on the tab at @p index. Pass invalid QColor to clear. */
+    void setTabColorByIndex(int index, const QColor &color);
+
     QSize sizeHint() const override;
 
 Q_SIGNALS:
@@ -269,13 +281,17 @@ private:
     };
 
     bool _stylesheetSet = false;
+    bool _composeBroadcast = false;
 
     QHash<const QWidget *, TabIconState> _tabIconState;
     QHash<const QWidget *, int> _tabSshState; // SSH state per top-level splitter (IKonsolePlugin::SshState)
+    QHash<const QWidget *, bool> _tabLocked;
+    QHash<const QWidget *, QIcon> _tabCustomIcon;
     ViewManager *_connectedViewManager;
     QMenu *_contextPopupMenu;
     QAction *_duplicateSessionAction;
     QAction *_reconnectSessionAction;
+    QAction *_lockTabAction;
     QToolButton *_newTabButton;
     QToolButton *_searchTabsButton;
     QToolButton *_closeTabButton;

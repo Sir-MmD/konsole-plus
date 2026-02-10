@@ -36,6 +36,7 @@
 #include <QProcess>
 
 #include <QCheckBox>
+#include <QPixmap>
 #include <QSettings>
 #include <QSortFilterProxyModel>
 
@@ -58,6 +59,40 @@ SSHManagerTreeWidget::SSHManagerTreeWidget(QWidget *parent)
     ui->setupUi(this);
     ui->errorPanel->hide();
     ui->treeView->setSelectionMode(QAbstractItemView::ExtendedSelection);
+
+    // Populate Tab Icon combo
+    ui->tabIcon->addItem(i18n("Default"), QString());
+    const QStringList iconNames = {
+        QStringLiteral("utilities-terminal"), QStringLiteral("network-server"), QStringLiteral("server-database"),
+        QStringLiteral("cloud"), QStringLiteral("folder"), QStringLiteral("go-home"),
+        QStringLiteral("code-context"), QStringLiteral("tools-report-bug"), QStringLiteral("starred-symbolic"),
+        QStringLiteral("flag"), QStringLiteral("dialog-password"), QStringLiteral("globe"),
+    };
+    const QStringList iconLabels = {
+        i18n("Terminal"), i18n("Server"), i18n("Database"),
+        i18n("Cloud"), i18n("Folder"), i18n("Home"),
+        i18n("Code"), i18n("Bug"), i18n("Star"),
+        i18n("Flag"), i18n("Key"), i18n("Globe"),
+    };
+    for (int i = 0; i < iconNames.size(); i++) {
+        ui->tabIcon->addItem(QIcon::fromTheme(iconNames[i]), iconLabels[i], iconNames[i]);
+    }
+
+    // Populate Tab Color combo
+    ui->tabColor->addItem(i18n("None"), QString());
+    const QList<QPair<QString, QColor>> colorPresets = {
+        {i18n("Red"), QColor(Qt::red)},
+        {i18n("Orange"), QColor(255, 165, 0)},
+        {i18n("Yellow"), QColor(Qt::yellow)},
+        {i18n("Green"), QColor(Qt::green)},
+        {i18n("Blue"), QColor(Qt::blue)},
+        {i18n("Purple"), QColor(128, 0, 128)},
+    };
+    for (const auto &[label, color] : colorPresets) {
+        QPixmap px(16, 16);
+        px.fill(color);
+        ui->tabColor->addItem(QIcon(px), label, color.name());
+    }
 
     d->filterModel = new SSHManagerFilterModel(this);
 
@@ -339,6 +374,9 @@ SSHConfigurationData SSHManagerTreeWidget::info() const
     
     data.enableSshfs = ui->enableSshfs->isChecked();
 
+    data.tabIcon = ui->tabIcon->currentData().toString();
+    data.tabColor = ui->tabColor->currentData().toString();
+
     // if ui->username is enabled then we were not imported!
     data.importedFromSshConfig = !ui->username->isEnabled();
     return data;
@@ -432,6 +470,14 @@ void SSHManagerTreeWidget::editSshInfo()
 
     ui->enableSshfs->setChecked(data.enableSshfs);
 
+    // Restore tab icon selection
+    int iconIdx = ui->tabIcon->findData(data.tabIcon);
+    ui->tabIcon->setCurrentIndex(iconIdx >= 0 ? iconIdx : 0);
+
+    // Restore tab color selection
+    int colorIdx = ui->tabColor->findData(data.tabColor);
+    ui->tabColor->setCurrentIndex(colorIdx >= 0 ? colorIdx : 0);
+
     // Show folder dropdown so user can move the profile to a different folder
     ui->folder->clear();
     ui->folder->addItems(d->model->folders());
@@ -489,6 +535,8 @@ void SSHManagerTreeWidget::clearSshInfo()
     ui->proxyPassword->setText({});
     ui->autoAcceptKeys->setChecked(true);
     ui->enableSshfs->setChecked(true);
+    ui->tabIcon->setCurrentIndex(0);
+    ui->tabColor->setCurrentIndex(0);
     ui->treeView->setEnabled(true);
 }
 

@@ -9,6 +9,7 @@
 #include "config-konsole.h"
 
 // Qt
+#include <QDockWidget>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMouseEvent>
@@ -66,6 +67,8 @@
 #include "settings/ThumbnailsSettings.h"
 
 #include "terminalDisplay/TerminalDisplay.h"
+#include "widgets/ComposeBarWidget.h"
+#include "widgets/TabManagerWidget.h"
 #include "widgets/ViewContainer.h"
 
 #include "pluginsystem/IKonsolePlugin.h"
@@ -104,6 +107,7 @@ MainWindow::MainWindow()
     connect(_viewManager, &Konsole::ViewManager::newViewWithProfileRequest, this, &Konsole::MainWindow::newFromProfile);
     connect(_viewManager, &Konsole::ViewManager::newViewRequest, this, &Konsole::MainWindow::newTab);
     connect(_viewManager, &Konsole::ViewManager::terminalsDetached, this, &Konsole::MainWindow::terminalsDetached);
+
     connect(_viewManager, &Konsole::ViewManager::duplicateSessionRequest, this, [this](Session *session) {
         for (auto *plugin : _plugins) {
             if (plugin->canDuplicateSession(session)) {
@@ -111,6 +115,8 @@ MainWindow::MainWindow()
                 return;
             }
         }
+        // Local session: just open a fresh new tab
+        newTab();
     });
     connect(_viewManager, &Konsole::ViewManager::reconnectSessionRequest, this, [this](Session *session) {
         for (auto *plugin : _plugins) {
@@ -137,6 +143,44 @@ MainWindow::MainWindow()
     connect(_viewManager, &Konsole::ViewManager::activationRequest, this, &Konsole::MainWindow::activationRequest);
 
     setCentralWidget(_viewManager->widget());
+
+    // Tab Manager dock
+    auto *tabManagerDock = new QDockWidget(this);
+    tabManagerDock->setWidget(new TabManagerWidget(_viewManager, tabManagerDock));
+    tabManagerDock->setWindowTitle(i18n("Tab Manager"));
+    tabManagerDock->setObjectName(QStringLiteral("TabManagerDock"));
+    tabManagerDock->setVisible(false);
+    tabManagerDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    addDockWidget(Qt::RightDockWidgetArea, tabManagerDock);
+
+    auto *toggleTabManagerAction = new QAction(i18n("Show Tab Manager"), this);
+    toggleTabManagerAction->setCheckable(true);
+    actionCollection()->addAction(QStringLiteral("show-tab-manager"), toggleTabManagerAction);
+    actionCollection()->setDefaultShortcut(toggleTabManagerAction, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F3));
+    connect(toggleTabManagerAction, &QAction::triggered, tabManagerDock, &QDockWidget::setVisible);
+    connect(tabManagerDock, &QDockWidget::visibilityChanged, toggleTabManagerAction, &QAction::setChecked);
+
+    // Compose Bar dock
+    auto *composeBarDock = new QDockWidget(this);
+    auto *composeBar = new ComposeBarWidget(_viewManager, composeBarDock);
+    composeBarDock->setWidget(composeBar);
+    composeBarDock->setWindowTitle(i18n("Compose Bar"));
+    composeBarDock->setObjectName(QStringLiteral("ComposeBarDock"));
+    composeBarDock->setVisible(false);
+    composeBarDock->setAllowedAreas(Qt::TopDockWidgetArea | Qt::BottomDockWidgetArea);
+    composeBarDock->setFeatures(QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetMovable);
+    addDockWidget(Qt::BottomDockWidgetArea, composeBarDock);
+
+    auto *toggleComposeBarAction = new QAction(i18n("Show Compose Bar"), this);
+    toggleComposeBarAction->setCheckable(true);
+    actionCollection()->addAction(QStringLiteral("show-compose-bar"), toggleComposeBarAction);
+    actionCollection()->setDefaultShortcut(toggleComposeBarAction, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F4));
+    connect(toggleComposeBarAction, &QAction::triggered, composeBarDock, &QDockWidget::setVisible);
+    connect(composeBarDock, &QDockWidget::visibilityChanged, toggleComposeBarAction, &QAction::setChecked);
+    connect(composeBar, &ComposeBarWidget::broadcastModeChanged, _viewManager, &ViewManager::setComposeBroadcast);
+    connect(composeBarDock, &QDockWidget::visibilityChanged, this, [composeBar, this](bool visible) {
+        _viewManager->setComposeBroadcast(visible && composeBar->isBroadcasting());
+    });
 
     // disable automatically generated accelerators in top-level
     // menu items - to avoid conflicting with Alt+[Letter] shortcuts

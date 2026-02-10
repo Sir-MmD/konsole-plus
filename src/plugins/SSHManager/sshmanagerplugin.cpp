@@ -14,6 +14,8 @@
 #include "konsoledebug.h"
 #include "session/SessionController.h"
 #include "session/Session.h"
+#include "widgets/ViewContainer.h"
+#include "widgets/ViewSplitter.h"
 
 #include <QDockWidget>
 #include <QListView>
@@ -617,6 +619,34 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
             d->activeSessionData.remove(session);
         }
     });
+
+    // Apply custom tab icon and color from the SSH profile
+    if (controller->view()) {
+        Konsole::TabbedViewContainer *container = nullptr;
+        // Walk parent chain to find the owning container
+        QWidget *w = controller->view()->parentWidget();
+        while (w) {
+            if (auto *c = qobject_cast<Konsole::TabbedViewContainer *>(w)) {
+                container = c;
+                break;
+            }
+            w = w->parentWidget();
+        }
+        if (container) {
+            auto *splitter = qobject_cast<Konsole::ViewSplitter *>(controller->view()->parentWidget());
+            if (splitter) {
+                int tabIdx = container->indexOf(splitter->getToplevelSplitter());
+                if (tabIdx >= 0) {
+                    if (!data.tabIcon.isEmpty()) {
+                        container->setTabCustomIcon(tabIdx, QIcon::fromTheme(data.tabIcon));
+                    }
+                    if (!data.tabColor.isEmpty()) {
+                        container->setTabColorByIndex(tabIdx, QColor(data.tabColor));
+                    }
+                }
+            }
+        }
+    }
 
     if (controller->session()->views().count()) {
         controller->session()->views().at(0)->setFocus();

@@ -10,6 +10,7 @@
 
 // Qt
 #include <QBoxLayout>
+#include <QColorDialog>
 #include <QFile>
 #include <QKeyEvent>
 #include <QMenu>
@@ -141,6 +142,144 @@ TabbedViewContainer::TabbedViewContainer(ViewManager *connectedViewManager, QWid
             Q_EMIT reconnectSession(_contextMenuTabIndex);
         });
     _reconnectSessionAction->setObjectName(QStringLiteral("reconnect-session"));
+
+    _lockTabAction = _contextPopupMenu->addAction(QIcon::fromTheme(QStringLiteral("object-locked")), i18nc("@action:inmenu", "&Lock Tab"), this, [this] {
+        auto *splitter = viewSplitterAt(_contextMenuTabIndex);
+        if (!splitter) {
+            return;
+        }
+        bool locked = !_tabLocked.value(splitter, false);
+        _tabLocked[splitter] = locked;
+
+        // Update the tab icon to reflect lock state
+        auto terminals = splitter->findChildren<TerminalDisplay *>();
+        if (!terminals.isEmpty() && terminals.first()->sessionController()) {
+            updateIcon(terminals.first()->sessionController());
+        }
+    });
+    _lockTabAction->setCheckable(true);
+    _lockTabAction->setObjectName(QStringLiteral("lock-tab"));
+
+    auto *colorMenu = new QMenu(i18nc("@action:inmenu", "Tab C&olor"), _contextPopupMenu);
+    colorMenu->setIcon(QIcon::fromTheme(QStringLiteral("colors-chromared")));
+
+    struct PresetColor {
+        const char *name;
+        QColor color;
+    };
+    const PresetColor presets[] = {
+        {QT_TR_NOOP("Red"), QColor(0xe7, 0x4c, 0x3c)},
+        {QT_TR_NOOP("Orange"), QColor(0xf0, 0xa0, 0x30)},
+        {QT_TR_NOOP("Yellow"), QColor(0xf1, 0xc4, 0x0f)},
+        {QT_TR_NOOP("Green"), QColor(0x2e, 0xcc, 0x40)},
+        {QT_TR_NOOP("Blue"), QColor(0x34, 0x98, 0xdb)},
+        {QT_TR_NOOP("Purple"), QColor(0x9b, 0x59, 0xb6)},
+    };
+
+    for (const auto &preset : presets) {
+        QPixmap swatch(16, 16);
+        swatch.fill(preset.color);
+        auto *action = colorMenu->addAction(QIcon(swatch), tr(preset.name));
+        QColor color = preset.color;
+        connect(action, &QAction::triggered, this, [this, color] {
+            auto *splitter = viewSplitterAt(_contextMenuTabIndex);
+            if (!splitter) {
+                return;
+            }
+            auto *terminal = splitter->activeTerminalDisplay();
+            if (terminal && terminal->sessionController() && terminal->sessionController()->session()) {
+                terminal->sessionController()->session()->setColor(color);
+            }
+        });
+    }
+
+    colorMenu->addSeparator();
+
+    auto *customColorAction = colorMenu->addAction(i18nc("@action:inmenu", "Custom..."));
+    connect(customColorAction, &QAction::triggered, this, [this] {
+        auto *splitter = viewSplitterAt(_contextMenuTabIndex);
+        if (!splitter) {
+            return;
+        }
+        auto *terminal = splitter->activeTerminalDisplay();
+        if (!terminal || !terminal->sessionController() || !terminal->sessionController()->session()) {
+            return;
+        }
+        QColor current = terminal->sessionController()->session()->color();
+        QColor chosen = QColorDialog::getColor(current.isValid() ? current : Qt::white, this, i18n("Tab Color"));
+        if (chosen.isValid()) {
+            terminal->sessionController()->session()->setColor(chosen);
+        }
+    });
+
+    auto *noColorAction = colorMenu->addAction(i18nc("@action:inmenu", "None"));
+    connect(noColorAction, &QAction::triggered, this, [this] {
+        auto *splitter = viewSplitterAt(_contextMenuTabIndex);
+        if (!splitter) {
+            return;
+        }
+        auto *terminal = splitter->activeTerminalDisplay();
+        if (terminal && terminal->sessionController() && terminal->sessionController()->session()) {
+            terminal->sessionController()->session()->setColor(QColor());
+        }
+    });
+
+    _contextPopupMenu->addMenu(colorMenu);
+
+    auto *iconMenu = new QMenu(i18nc("@action:inmenu", "Tab &Icon"), _contextPopupMenu);
+    iconMenu->setIcon(QIcon::fromTheme(QStringLiteral("preferences-desktop-icons")));
+
+    struct PresetIcon {
+        const char *label;
+        const char *iconName;
+    };
+    const PresetIcon presetIcons[] = {
+        {QT_TR_NOOP("Terminal"), "utilities-terminal"},
+        {QT_TR_NOOP("Server"), "network-server"},
+        {QT_TR_NOOP("Database"), "server-database"},
+        {QT_TR_NOOP("Cloud"), "cloud"},
+        {QT_TR_NOOP("Folder"), "folder"},
+        {QT_TR_NOOP("Home"), "go-home"},
+        {QT_TR_NOOP("Code"), "code-context"},
+        {QT_TR_NOOP("Bug"), "tools-report-bug"},
+        {QT_TR_NOOP("Star"), "rating"},
+        {QT_TR_NOOP("Flag"), "flag-red"},
+        {QT_TR_NOOP("Key"), "password-show-on"},
+        {QT_TR_NOOP("Globe"), "internet-services"},
+    };
+
+    for (const auto &preset : presetIcons) {
+        QIcon icon = QIcon::fromTheme(QLatin1String(preset.iconName));
+        auto *action = iconMenu->addAction(icon, tr(preset.label));
+        connect(action, &QAction::triggered, this, [this, icon] {
+            auto *splitter = viewSplitterAt(_contextMenuTabIndex);
+            if (!splitter) {
+                return;
+            }
+            _tabCustomIcon[splitter] = icon;
+            auto *display = splitter->activeTerminalDisplay();
+            if (display && display->sessionController()) {
+                updateIcon(display->sessionController());
+            }
+        });
+    }
+
+    iconMenu->addSeparator();
+
+    auto *defaultIconAction = iconMenu->addAction(i18nc("@action:inmenu", "Default"));
+    connect(defaultIconAction, &QAction::triggered, this, [this] {
+        auto *splitter = viewSplitterAt(_contextMenuTabIndex);
+        if (!splitter) {
+            return;
+        }
+        _tabCustomIcon.remove(splitter);
+        auto *display = splitter->activeTerminalDisplay();
+        if (display && display->sessionController()) {
+            updateIcon(display->sessionController());
+        }
+    });
+
+    _contextPopupMenu->addMenu(iconMenu);
 
     auto editAction =
         _contextPopupMenu->addAction(QIcon::fromTheme(QStringLiteral("edit-rename")), i18nc("@action:inmenu", "&Configure or Rename Tab..."), this, [this] {
@@ -465,6 +604,8 @@ void TabbedViewContainer::viewDestroyed(QObject *view)
     removeTab(idx);
     forgetView();
     _tabIconState.remove(widget);
+    _tabLocked.remove(widget);
+    _tabCustomIcon.remove(widget);
 
     Q_EMIT viewRemoved();
 }
@@ -521,7 +662,7 @@ void TabbedViewContainer::closeCurrentTab()
 void TabbedViewContainer::tabDoubleClicked(int index)
 {
     if (index >= 0) {
-        renameTab(index);
+        Q_EMIT duplicateSession(index);
     } else {
         Q_EMIT newViewRequest();
     }
@@ -569,6 +710,11 @@ void TabbedViewContainer::openTabContextMenu(const QPoint &point)
     // Default to disabled; listeners update via setDuplicateSessionEnabled/setReconnectSessionEnabled
     _duplicateSessionAction->setEnabled(false);
     _reconnectSessionAction->setEnabled(false);
+
+    // Update lock tab checkmark
+    auto *splitter = viewSplitterAt(_contextMenuTabIndex);
+    _lockTabAction->setChecked(splitter && _tabLocked.value(splitter, false));
+
     Q_EMIT tabContextMenuAboutToShow(_contextMenuTabIndex);
 
     _contextPopupMenu->exec(tabBar()->mapToGlobal(point));
@@ -675,7 +821,9 @@ void TabbedViewContainer::updateIcon(ViewProperties *item)
     // When notifications/states are active, show their icon.
     // Otherwise restore the SSH status circle (or gray for local).
     QIcon icon;
-    if (state.notification != Session::NoNotification) {
+    if (_tabLocked.value(topLevelSplitter, false)) {
+        icon = QIcon::fromTheme(QLatin1String("object-locked"));
+    } else if (state.notification != Session::NoNotification) {
         switch (state.notification) {
         case Session::Bell: {
             auto session = controller->session();
@@ -693,10 +841,12 @@ void TabbedViewContainer::updateIcon(ViewProperties *item)
         default:
             break;
         }
-    } else if (state.broadcast) {
+    } else if (state.broadcast || _composeBroadcast) {
         icon = QIcon::fromTheme(QLatin1String("irc-voice"));
     } else if (state.readOnly) {
         icon = QIcon::fromTheme(QLatin1String("object-locked"));
+    } else if (_tabCustomIcon.contains(topLevelSplitter)) {
+        icon = _tabCustomIcon.value(topLevelSplitter);
     } else {
         // Restore SSH status circle
         int sshState = _tabSshState.value(topLevelSplitter, 0);
@@ -780,12 +930,26 @@ void TabbedViewContainer::currentSessionControllerChanged(SessionController *con
     updateSpecialState(qobject_cast<ViewProperties *>(controller));
 }
 
+bool TabbedViewContainer::isTabLocked(int index) const
+{
+    auto *w = widget(index);
+    return w && _tabLocked.value(w, false);
+}
+
 void TabbedViewContainer::closeTerminalTab(int idx)
 {
+    auto *splitter = viewSplitterAt(idx);
+    if (!splitter) {
+        return;
+    }
+    if (_tabLocked.value(splitter, false)) {
+        return;
+    }
+
     Q_EMIT removeColor(idx);
     // TODO: This for should probably go to the ViewSplitter
-    const auto viewSplitters = viewSplitterAt(idx)->findChildren<TerminalDisplay *>();
-    for (auto terminal : viewSplitters) {
+    const auto terminals = splitter->findChildren<TerminalDisplay *>();
+    for (auto terminal : terminals) {
         terminal->sessionController()->closeSession();
     }
 }
@@ -864,6 +1028,52 @@ void TabbedViewContainer::moveToNewTab(TerminalDisplay *display)
     // Ensure that the current terminal is not maximized so that the other views will be shown properly
     activeViewSplitter()->clearMaximized();
     addView(display);
+}
+
+void TabbedViewContainer::setTabCustomIcon(int index, const QIcon &icon)
+{
+    auto *splitter = viewSplitterAt(index);
+    if (!splitter) {
+        return;
+    }
+    if (icon.isNull()) {
+        _tabCustomIcon.remove(splitter);
+    } else {
+        _tabCustomIcon[splitter] = icon;
+    }
+    auto *display = splitter->activeTerminalDisplay();
+    if (display && display->sessionController()) {
+        updateIcon(display->sessionController());
+    }
+}
+
+void TabbedViewContainer::setTabColorByIndex(int index, const QColor &color)
+{
+    if (color.isValid()) {
+        Q_EMIT setColor(index, color);
+    } else {
+        Q_EMIT removeColor(index);
+    }
+}
+
+void TabbedViewContainer::setComposeBroadcast(bool enabled)
+{
+    if (_composeBroadcast == enabled) {
+        return;
+    }
+    _composeBroadcast = enabled;
+
+    // Refresh icons on all tabs
+    for (int i = 0; i < count(); i++) {
+        auto *splitter = viewSplitterAt(i);
+        if (!splitter) {
+            continue;
+        }
+        auto *display = splitter->activeTerminalDisplay();
+        if (display && display->sessionController()) {
+            updateIcon(display->sessionController());
+        }
+    }
 }
 
 void TabbedViewContainer::updateSshState(Session *session, int state)

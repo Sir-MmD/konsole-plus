@@ -179,6 +179,9 @@ public:
 
     /** Update the SSH state indicator for the tab containing the given session. */
     void updateSshState(Session *session, int state);
+
+    /** Set compose bar broadcast mode on the active container. */
+    void setComposeBroadcast(bool enabled);
     TerminalDisplay *createView(Session *session);
     void attachView(TerminalDisplay *terminal, Session *session);
 

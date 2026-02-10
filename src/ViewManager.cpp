@@ -1842,4 +1842,11 @@ void ViewManager::updateSshState(Session *session, int state)
     }
 }
 
+void ViewManager::setComposeBroadcast(bool enabled)
+{
+    if (_viewContainer) {
+        _viewContainer->setComposeBroadcast(enabled);
+    }
+}
+
 #include "moc_ViewManager.cpp"
