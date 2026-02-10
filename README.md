@@ -15,23 +15,22 @@
 ## Features
 
 - **Encrypted credential storage** -- stored passwords and passphrases are encrypted with a master password
-- **Remote filesystem mounting** -- mount remote filesystems automatically on connect via rclone
-- **Profile import / export** -- back up and share SSH profiles as JSON with optional encryption and duplicate handling
 - **SOCKS5 proxy support** -- connect through a proxy per profile
-- **Clean connection output** -- hides the SSH command, shows connection status only
-- **Automatic tab naming** -- tabs are named after the SSH profile
-- **Multi-select operations** -- bulk-connect or bulk-delete profiles
+- **Open SFTP** -- right-click an SSH tab to open the remote filesystem in Dolphin via SFTP, using the saved SSH credentials automatically
+- **Quick Connect** -- type `user@host` or `user@host:port` in the SSH Manager panel to connect without a saved profile
 - **Duplicate Session** -- right-click a tab to open another connection to the same SSH host
 - **Reconnect Session** -- right-click a tab to reconnect a disconnected SSH session
-- **Quick Connect** -- type `user@host` or `user@host:port` in the SSH Manager panel to connect without a saved profile
-- **SSH error reasons** -- on connection failure, shows specific error details (wrong password, timeout, refused, etc.)
+- **Profile import / export** -- back up and share SSH profiles as JSON with optional encryption and duplicate handling
 - **Tab SSH status indicators** -- colored circles on tabs show connection state (gray/orange/green/red)
-- **Custom tab icon and color** -- set per-profile icons and colors in the SSH profile editor, or right-click any tab to customize
-- **Lock Tab** -- right-click a tab to lock it and prevent accidental closing
+- **SSH error reasons** -- on connection failure, shows specific error details (wrong password, timeout, refused, etc.)
 - **Compose Bar** -- bottom panel to type and send commands to the current or all sessions at once
 - **Tab Manager** -- side panel with a tree view of all open tabs
+- **Custom tab icon and color** -- set per-profile icons and colors in the SSH profile editor, or right-click any tab to customize
+- **Lock Tab** -- right-click a tab to lock it and prevent accidental closing
+- **Multi-select operations** -- bulk-connect or bulk-delete profiles
 - **Double-click to duplicate** -- double-click an SSH tab to duplicate it, or double-click a local tab to open a new one
-- **Open SFTP** -- right-click an SSH tab to open the remote filesystem in Dolphin via SFTP, using the saved SSH credentials automatically
+- **Automatic tab naming** -- tabs are named after the SSH profile
+- **Clean connection output** -- hides the SSH command, shows connection status only
 
 ## Build
 
@@ -50,7 +49,7 @@ sudo pacman -S --needed base-devel cmake extra-cmake-modules \
   kservice ktextwidgets kwidgetsaddons \
   kwindowsystem kxmlgui kdoctools \
   icu zlib openssl libxkbcommon \
-  openssh sshpass rclone fuse3
+  openssh sshpass
 ```
 </details>
 
@@ -69,7 +68,7 @@ sudo dnf install cmake gcc-c++ extra-cmake-modules \
   kf6-kwidgetsaddons-devel kf6-kwindowsystem-devel kf6-kxmlgui-devel \
   kf6-kdoctools-devel \
   libicu-devel zlib-devel openssl-devel libxkbcommon-devel \
-  openssh-clients sshpass rclone fuse3
+  openssh-clients sshpass
 ```
 </details>
 
@@ -90,7 +89,7 @@ sudo apt install cmake g++ extra-cmake-modules \
   libkf6widgetsaddons-dev libkf6windowsystem-dev libkf6xmlgui-dev \
   libkf6doctools-dev \
   libicu-dev zlib1g-dev libssl-dev libxkbcommon-dev \
-  openssh-client sshpass rclone fuse3
+  openssh-client sshpass
 ```
 </details>
 
