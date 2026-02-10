@@ -372,8 +372,6 @@ SSHConfigurationData SSHManagerTreeWidget::info() const
     data.proxyUsername = ui->proxyUsername->text().trimmed();
     data.proxyPassword = ui->proxyPassword->text().trimmed();
     
-    data.enableSshfs = ui->enableSshfs->isChecked();
-
     data.tabIcon = ui->tabIcon->currentData().toString();
     data.tabColor = ui->tabColor->currentData().toString();
 
@@ -468,8 +466,6 @@ void SSHManagerTreeWidget::editSshInfo()
     ui->proxyUsername->setText(data.proxyUsername);
     ui->proxyPassword->setText(data.proxyPassword);
 
-    ui->enableSshfs->setChecked(data.enableSshfs);
-
     // Restore tab icon selection
     int iconIdx = ui->tabIcon->findData(data.tabIcon);
     ui->tabIcon->setCurrentIndex(iconIdx >= 0 ? iconIdx : 0);
@@ -492,7 +488,7 @@ void SSHManagerTreeWidget::editSshInfo()
 
 void SSHManagerTreeWidget::handleImportedData(bool isImported)
 {
-    QList<QWidget *> elements = {ui->hostname, ui->port, ui->username, ui->password, ui->sshkey, ui->sshKeyPassphrase, ui->useSshConfig, ui->autoAcceptKeys, ui->proxyGroup, ui->enableSshfs};
+    QList<QWidget *> elements = {ui->hostname, ui->port, ui->username, ui->password, ui->sshkey, ui->sshKeyPassphrase, ui->useSshConfig, ui->autoAcceptKeys, ui->proxyGroup};
     if (isImported) {
         ui->errorPanel->setText(i18n("Imported SSH Profile <br/> Some settings are read only."));
         ui->errorPanel->show();
@@ -516,7 +512,6 @@ void SSHManagerTreeWidget::setEditComponentsEnabled(bool enabled)
     ui->useSshConfig->setEnabled(enabled);
     ui->autoAcceptKeys->setEnabled(enabled);
     ui->proxyGroup->setEnabled(enabled);
-    ui->enableSshfs->setEnabled(enabled);
 }
 
 void SSHManagerTreeWidget::clearSshInfo()
@@ -534,7 +529,6 @@ void SSHManagerTreeWidget::clearSshInfo()
     ui->proxyUsername->setText({});
     ui->proxyPassword->setText({});
     ui->autoAcceptKeys->setChecked(true);
-    ui->enableSshfs->setChecked(true);
     ui->tabIcon->setCurrentIndex(0);
     ui->tabColor->setCurrentIndex(0);
     ui->treeView->setEnabled(true);

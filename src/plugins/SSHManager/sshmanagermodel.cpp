@@ -333,8 +333,6 @@ void SSHManagerModel::load()
             data.proxyUsername = sessionGroup.readEntry("proxyUsername");
             data.proxyPassword = maybeDecrypt(sessionGroup.readEntry("proxyPassword"));
 
-            data.enableSshfs = sessionGroup.readEntry<bool>("enableSshfs", false);
-
             data.tabIcon = sessionGroup.readEntry("tabIcon");
             data.tabColor = sessionGroup.readEntry("tabColor");
 
@@ -388,8 +386,6 @@ void SSHManagerModel::save()
             sshGroup.writeEntry("proxyUsername", data.proxyUsername);
             sshGroup.writeEntry("proxyPassword", maybeEncrypt(data.proxyPassword));
             
-            sshGroup.writeEntry("enableSshfs", data.enableSshfs);
-
             sshGroup.writeEntry("tabIcon", data.tabIcon);
             sshGroup.writeEntry("tabColor", data.tabColor);
 
@@ -673,7 +669,6 @@ static QJsonObject dataToJson(const SSHConfigurationData &data)
     obj[QStringLiteral("proxyPort")] = data.proxyPort;
     obj[QStringLiteral("proxyUsername")] = data.proxyUsername;
     obj[QStringLiteral("proxyPassword")] = data.proxyPassword;
-    obj[QStringLiteral("enableSshfs")] = data.enableSshfs;
     obj[QStringLiteral("tabIcon")] = data.tabIcon;
     obj[QStringLiteral("tabColor")] = data.tabColor;
     return obj;
@@ -698,7 +693,6 @@ static SSHConfigurationData jsonToData(const QJsonObject &obj)
     data.proxyPort = obj[QStringLiteral("proxyPort")].toString();
     data.proxyUsername = obj[QStringLiteral("proxyUsername")].toString();
     data.proxyPassword = obj[QStringLiteral("proxyPassword")].toString();
-    data.enableSshfs = obj[QStringLiteral("enableSshfs")].toBool();
     data.tabIcon = obj[QStringLiteral("tabIcon")].toString();
     data.tabColor = obj[QStringLiteral("tabColor")].toString();
     return data;

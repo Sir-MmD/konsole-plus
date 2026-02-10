@@ -58,15 +58,6 @@ struct SSHManagerPluginPrivate {
     
     QPointer<Konsole::MainWindow> currentMainWindow;
 
-    // Track active rclone mounts by SSH entry name.
-    // Stores the ref count (number of sessions using this mount) and the socket path.
-    struct SshfsMount {
-        int refCount = 0;
-        QString socketPath;
-        QString mountPoint;
-    };
-    QHash<QString, SshfsMount> activeSshfsMounts;
-
     // Track which sessions were connected via the SSH Manager, so we can duplicate them.
     QHash<Konsole::Session*, SSHConfigurationData> activeSessionData;
 
@@ -360,141 +351,6 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
         }
     }
 
-    // Rclone mount handling: reuse existing mount if one is already active for this entry
-    const bool sshfsAlreadyMounted = data.enableSshfs && d->activeSshfsMounts.contains(data.name);
-    const QString uuid = QUuid::createUuid().toString(QUuid::Id128);
-    const QString socketPath = sshfsAlreadyMounted
-        ? d->activeSshfsMounts[data.name].socketPath
-        : QStringLiteral("/tmp/konsole_ssh_socket_") + uuid;
-
-    if (data.enableSshfs && !sshfsAlreadyMounted) {
-        sshCommand += QStringLiteral(" -M -S %1 -o ControlPersist=5s ").arg(socketPath);
-    }
-    
-    QString mountPoint;
-    if (data.enableSshfs) {
-        const QString home = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
-        mountPoint = home + QStringLiteral("/rclone_mounts/") + data.name;
-    }
-
-    if (data.enableSshfs && !sshfsAlreadyMounted) {
-        // First session for this host — set up the mount
-        QDir().mkpath(mountPoint);
-        
-        auto *timer = new QTimer(controller->session());
-        timer->setInterval(500);
-        
-        auto *counter = new int(0); 
-        
-        QObject::connect(timer, &QTimer::timeout, controller->session(), [timer, counter, socketPath, data, mountPoint]() {
-             (*counter)++;
-             if (*counter > 30) {
-                 timer->stop();
-                 timer->deleteLater();
-                 delete counter;
-                 return;
-             }
-
-             if (QFile::exists(socketPath)) {
-                 timer->stop();
-                 timer->deleteLater();
-                 delete counter;
-
-                 QString rcloneExe = QStandardPaths::findExecutable(QStringLiteral("rclone"));
-                 if (rcloneExe.isEmpty()) {
-                     const QString home = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
-                     QString localRclone = home + QStringLiteral("/.local/bin/rclone");
-                     if (QFile::exists(localRclone)) {
-                         rcloneExe = localRclone;
-                     } else {
-                         rcloneExe = QStringLiteral("rclone"); 
-                     }
-                 }
-
-                 QString mountCmd = rcloneExe + QStringLiteral(" mount");
-
-                 mountCmd += QStringLiteral(" --contimeout 15s");
-                 mountCmd += QStringLiteral(" --vfs-cache-mode full");
-                 mountCmd += QStringLiteral(" --vfs-cache-max-age 1h");
-                 
-                 QString sshWrapper;
-                 
-                 if (data.useSshConfig) {
-                      sshWrapper = QStringLiteral("ssh -S %1 %2").arg(socketPath, data.name);
-                 } else {
-                      // The control master socket (-S) already tunnels through
-                      // the proxy when one is configured, so the rclone sftp-ssh
-                      // wrapper does NOT need a ProxyCommand — the multiplexed
-                      // slave connections piggyback on the master.
-                      sshWrapper = QStringLiteral("ssh -S %1").arg(socketPath);
-
-                      if (data.port.length()) {
-                           sshWrapper += QStringLiteral(" -p %1").arg(data.port);
-                      }
-                      if (data.sshKey.length()) {
-                           sshWrapper += QStringLiteral(" -i %1").arg(data.sshKey);
-                      }
-                      if (!data.username.isEmpty()) {
-                           sshWrapper += QStringLiteral(" %1@%2").arg(data.username, data.host);
-                      } else {
-                           sshWrapper += QStringLiteral(" %1").arg(data.host);
-                      }
-                 }
-                 
-                 mountCmd += QStringLiteral(" --sftp-ssh '%1'").arg(sshWrapper);
-                 
-                 QString rcloneTarget;
-                 if (data.useSshConfig) {
-                     rcloneTarget = QStringLiteral(":sftp,host=%1:/").arg(data.name);
-                 } else {
-                     if (!data.username.isEmpty()) {
-                         rcloneTarget = QStringLiteral(":sftp,host=%1,user=%2:/").arg(data.host, data.username);
-                     } else {
-                         rcloneTarget = QStringLiteral(":sftp,host=%1:/").arg(data.host);
-                     }
-                 }
-                 mountCmd += QStringLiteral(" ") + rcloneTarget;
-                 
-                 mountCmd += QStringLiteral(" '%1'").arg(mountPoint);
-                 
-                 mountCmd += QStringLiteral(" --volname '%1'").arg(data.name);
-                 
-                 QString logFile = QStringLiteral("/tmp/konsole_rclone_%1.log").arg(data.name);
-                 mountCmd += QStringLiteral(" --log-file='%1' -vv").arg(logFile);
-                 
-                 mountCmd += QStringLiteral(" --daemon");
-
-                 QProcess::startDetached(QStringLiteral("sh"), {QStringLiteral("-c"), mountCmd});
-             }
-        });
-        
-        timer->start();
-
-        // Register this mount
-        d->activeSshfsMounts[data.name] = {1, socketPath, mountPoint};
-    } else if (data.enableSshfs) {
-        // Another session connecting to the same host — just bump the ref count
-        d->activeSshfsMounts[data.name].refCount++;
-    }
-
-    if (data.enableSshfs) {
-        // When session finishes, decrement ref count; only unmount when last session closes
-        const QString entryName = data.name;
-        QObject::connect(controller->session(), &Konsole::Session::finished, this, [this, entryName]() {
-            if (!d->activeSshfsMounts.contains(entryName)) {
-                return;
-            }
-            auto &mount = d->activeSshfsMounts[entryName];
-            mount.refCount--;
-            if (mount.refCount <= 0) {
-                QProcess::execute(QStringLiteral("fusermount"), {QStringLiteral("-u"), QStringLiteral("-z"), mount.mountPoint});
-                QDir().rmdir(mount.mountPoint);
-                QFile::remove(mount.socketPath);
-                d->activeSshfsMounts.remove(entryName);
-            }
-        });
-    }
-
     // Set tab title to the SSH identifier, or hostname if no name was set
     const QString tabTitle = data.name.isEmpty() ? data.host : data.name;
     controller->session()->setTitle(Konsole::Session::NameRole, tabTitle);
@@ -566,14 +422,10 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
     session->setEchoEnabled(false);
     session->sendTextToTerminal(wrappedCommand, QLatin1Char('\r'));
 
-    // Re-enable echo after a short delay so the shell prompt reappears.
-    // SSH itself puts the local PTY into raw mode (echo off) once it
-    // connects, so this only bridges the gap while the command is parsed.
-    QTimer::singleShot(500, controller->session(), [session]() {
-        if (session) {
-            session->setEchoEnabled(true);
-        }
-    });
+    // Do NOT use a timer to re-enable echo. SSH puts the PTY into raw mode
+    // itself once it connects. Re-enabling echo while SSH is active causes
+    // double echo. Instead, re-enable echo only when SSH exits (disconnect
+    // or failure), detected by the status polling timer below.
 
     // SSH status indicator: poll the status file to detect connect/disconnect/fail.
     d->sessionSshState[controller->session()] = IKonsolePlugin::SshConnecting;
@@ -600,7 +452,10 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
             // Keep polling — need to detect disconnect later
         } else if (status == QLatin1String("disconnected") || status == QLatin1String("failed")) {
             statusTimer->stop();
+            // Re-enable echo now that SSH has exited and the user is
+            // back in a local shell.
             if (session) {
+                session->setEchoEnabled(true);
                 d->sessionSshState[session] = IKonsolePlugin::SshDisconnected;
                 Q_EMIT sshStateChanged(session, IKonsolePlugin::SshDisconnected);
             }
@@ -611,6 +466,7 @@ void SSHManagerPlugin::startConnection(const SSHConfigurationData &data, Konsole
         statusTimer->stop();
         QFile::remove(sshStatusFile);
         if (session) {
+            session->setEchoEnabled(true);
             d->sessionSshState.remove(session);
             Q_EMIT sshStateChanged(session, IKonsolePlugin::SshDisconnected);
         }
