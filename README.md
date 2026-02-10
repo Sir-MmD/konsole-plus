@@ -22,6 +22,15 @@
 - **Automatic tab naming** -- tabs are named after the SSH profile
 - **Multi-select operations** -- bulk-connect or bulk-delete profiles
 - **Duplicate Session** -- right-click a tab to open another connection to the same SSH host
+- **Reconnect Session** -- right-click a tab to reconnect a disconnected SSH session
+- **Quick Connect** -- type `user@host` or `user@host:port` in the SSH Manager panel to connect without a saved profile
+- **SSH error reasons** -- on connection failure, shows specific error details (wrong password, timeout, refused, etc.)
+- **Tab SSH status indicators** -- colored circles on tabs show connection state (gray/orange/green/red)
+- **Custom tab icon and color** -- set per-profile icons and colors in the SSH profile editor, or right-click any tab to customize
+- **Lock Tab** -- right-click a tab to lock it and prevent accidental closing
+- **Compose Bar** -- bottom panel to type and send commands to the current or all sessions at once
+- **Tab Manager** -- side panel with a tree view of all open tabs
+- **Double-click to duplicate** -- double-click an SSH tab to duplicate it, or double-click a local tab to open a new one
 
 ## Build
 
