@@ -128,6 +128,7 @@ file(GLOB ICONS_SRCS "data/icons/*.png" "data/icons/*.svg")
 option(ENABLE_PLUGIN_SSHMANAGER "Build the SSHManager plugin" ON)
 option(ENABLE_PLUGIN_QUICKCOMMANDS "Build the Quick Commands plugin" ON)
 
+
 add_subdirectory( src )
 add_subdirectory( desktop )
 

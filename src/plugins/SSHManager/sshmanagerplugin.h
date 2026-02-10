@@ -45,6 +45,11 @@ public:
     bool canReconnectSession(Konsole::Session *session) const override;
     void reconnectSession(Konsole::Session *session, Konsole::MainWindow *mainWindow) override;
 
+    Konsole::SshSessionData getSessionSshData(Konsole::Session *session) const override;
+
+    bool canOpenSftp(Konsole::Session *session) const override;
+    void openSftp(Konsole::Session *session, Konsole::MainWindow *mainWindow) override;
+
 private:
     void startConnection(const SSHConfigurationData &data, Konsole::SessionController *controller);
 

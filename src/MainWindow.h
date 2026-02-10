@@ -42,6 +42,7 @@ class ProfileList;
 class IKonsolePlugin;
 class BookmarkHandler;
 struct ContainerInfo;
+struct SshSessionData;
 
 /**
  * The main window.  This contains the menus and an area which contains the terminal displays.
@@ -118,6 +119,11 @@ public:
      * creates a new tab for the main window
      */
     void newTab();
+
+    /**
+     * Query SSH session data across all plugins.
+     */
+    SshSessionData getSessionSshData(Session *session) const;
 
     /**
      * @brief set list actions for menu "Plugins"

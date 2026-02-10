@@ -31,6 +31,7 @@
 - **Compose Bar** -- bottom panel to type and send commands to the current or all sessions at once
 - **Tab Manager** -- side panel with a tree view of all open tabs
 - **Double-click to duplicate** -- double-click an SSH tab to duplicate it, or double-click a local tab to open a new one
+- **Open SFTP** -- right-click an SSH tab to open the remote filesystem in Dolphin via SFTP, using the saved SSH credentials automatically
 
 ## Build
 

@@ -126,9 +126,18 @@ MainWindow::MainWindow()
             }
         }
     });
+    connect(_viewManager, &Konsole::ViewManager::openSftpRequest, this, [this](Session *session) {
+        for (auto *plugin : _plugins) {
+            if (plugin->canOpenSftp(session)) {
+                plugin->openSftp(session, this);
+                return;
+            }
+        }
+    });
     connect(_viewManager, &Konsole::ViewManager::tabContextMenuAboutToShow, this, [this](Session *session) {
         bool canDuplicate = false;
         bool canReconnect = false;
+        bool canSftp = false;
         for (auto *plugin : _plugins) {
             if (plugin->canDuplicateSession(session)) {
                 canDuplicate = true;
@@ -136,9 +145,13 @@ MainWindow::MainWindow()
             if (plugin->canReconnectSession(session)) {
                 canReconnect = true;
             }
+            if (plugin->canOpenSftp(session)) {
+                canSftp = true;
+            }
         }
         _viewManager->activeContainer()->setDuplicateSessionEnabled(canDuplicate);
         _viewManager->activeContainer()->setReconnectSessionEnabled(canReconnect);
+        _viewManager->activeContainer()->setOpenSftpEnabled(canSftp);
     });
     connect(_viewManager, &Konsole::ViewManager::activationRequest, this, &Konsole::MainWindow::activationRequest);
 
@@ -740,6 +753,20 @@ void MainWindow::addPlugin(IKonsolePlugin *plugin)
 void MainWindow::updateSshState(Session *session, int state)
 {
     _viewManager->updateSshState(session, state);
+    for (auto *plugin : _plugins) {
+        plugin->onSshStateChanged(session, state);
+    }
+}
+
+SshSessionData MainWindow::getSessionSshData(Session *session) const
+{
+    for (auto *plugin : _plugins) {
+        auto data = plugin->getSessionSshData(session);
+        if (data.valid) {
+            return data;
+        }
+    }
+    return {};
 }
 
 void MainWindow::cloneTab()

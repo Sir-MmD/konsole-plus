@@ -249,6 +249,9 @@ Q_SIGNALS:
     /** Emitted when the user requests to reconnect an SSH session */
     void reconnectSessionRequest(Session *session);
 
+    /** Emitted when the user requests to open SFTP for an SSH session */
+    void openSftpRequest(Session *session);
+
     /** Emitted before the tab context menu is shown, carrying the session for the tab */
     void tabContextMenuAboutToShow(Session *session);
 
@@ -502,6 +505,9 @@ private Q_SLOTS:
 
     /* Reconnects the SSH session in the tab at index tabIdx */
     void reconnectSession(int tabIdx);
+
+    /* Opens SFTP browser for the SSH session in the tab at index tabIdx */
+    void openSftp(int tabIdx);
 
     void semanticSetupBash();
 

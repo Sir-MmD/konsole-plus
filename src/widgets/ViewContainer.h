@@ -175,6 +175,7 @@ public:
 
     /** Enable or disable the "Reconnect" context menu action. */
     void setReconnectSessionEnabled(bool enabled);
+    void setOpenSftpEnabled(bool enabled);
 
     /** Update the SSH state indicator for the tab containing the given session. */
     void updateSshState(Session *session, int state);
@@ -234,6 +235,9 @@ Q_SIGNALS:
 
     /** reconnect the SSH session in the specific tab */
     void reconnectSession(int tabIdx);
+
+    /** open SFTP browser for the SSH session in the specific tab */
+    void openSftp(int tabIdx);
 
     /** emitted before the tab context menu is shown so listeners can update actions */
     void tabContextMenuAboutToShow(int tabIdx);
@@ -301,6 +305,7 @@ private:
     QMenu *_contextPopupMenu;
     QAction *_duplicateSessionAction;
     QAction *_reconnectSessionAction;
+    QAction *_openSftpAction;
     QAction *_lockTabAction;
     QToolButton *_newTabButton;
     QToolButton *_searchTabsButton;

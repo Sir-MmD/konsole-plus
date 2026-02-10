@@ -42,6 +42,11 @@
 #include "ViewManager.h"
 #include "terminalDisplay/TerminalDisplay.h"
 
+#include <KIO/AuthInfo>
+#include <KIO/JobUiDelegateFactory>
+#include <KIO/OpenUrlJob>
+#include <KPasswdServerClient>
+
 K_PLUGIN_CLASS_WITH_JSON(SSHManagerPlugin, "konsole_sshmanager.json")
 
 struct SSHManagerPluginPrivate {
@@ -733,6 +738,82 @@ void SSHManagerPlugin::reconnectSession(Konsole::Session *session, Konsole::Main
             startConnection(data, controller);
         }
     });
+}
+
+Konsole::SshSessionData SSHManagerPlugin::getSessionSshData(Konsole::Session *session) const
+{
+    if (!session) {
+        return {};
+    }
+    auto it = d->activeSessionData.find(session);
+    if (it == d->activeSessionData.end()) {
+        return {};
+    }
+    const auto &cfg = it.value();
+    Konsole::SshSessionData data;
+    data.valid = true;
+    data.host = cfg.host;
+    data.port = cfg.port;
+    data.username = cfg.username;
+    data.password = cfg.password;
+    data.sshKey = cfg.sshKey;
+    data.sshKeyPassphrase = cfg.sshKeyPassphrase;
+    return data;
+}
+
+bool SSHManagerPlugin::canOpenSftp(Konsole::Session *session) const
+{
+    if (!session) {
+        return false;
+    }
+    return d->activeSessionData.contains(session);
+}
+
+void SSHManagerPlugin::openSftp(Konsole::Session *session, Konsole::MainWindow *mainWindow)
+{
+    if (!session) {
+        return;
+    }
+
+    auto it = d->activeSessionData.find(session);
+    if (it == d->activeSessionData.end()) {
+        return;
+    }
+    const auto &cfg = it.value();
+
+    int port = cfg.port.isEmpty() ? 22 : cfg.port.toInt();
+
+    // Build sftp:// URL with password embedded so KIO doesn't prompt
+    QUrl sftpUrl;
+    sftpUrl.setScheme(QStringLiteral("sftp"));
+    sftpUrl.setHost(cfg.host);
+    sftpUrl.setPort(port);
+    sftpUrl.setUserName(cfg.username);
+    if (!cfg.password.isEmpty()) {
+        sftpUrl.setPassword(cfg.password);
+    }
+    if (cfg.username == QLatin1String("root")) {
+        sftpUrl.setPath(QStringLiteral("/root"));
+    } else {
+        sftpUrl.setPath(QStringLiteral("/home/") + cfg.username);
+    }
+
+    // Also pre-cache via KPasswdServer as backup
+    if (!cfg.password.isEmpty()) {
+        KIO::AuthInfo authInfo;
+        authInfo.url = sftpUrl;
+        authInfo.username = cfg.username;
+        authInfo.password = cfg.password;
+        authInfo.keepPassword = true;
+
+        KPasswdServerClient passwdClient;
+        passwdClient.addAuthInfo(authInfo, mainWindow ? mainWindow->winId() : 0);
+    }
+
+    // Open in the default file manager (e.g. Dolphin)
+    auto *job = new KIO::OpenUrlJob(sftpUrl);
+    job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, mainWindow));
+    job->start();
 }
 
 #include "moc_sshmanagerplugin.cpp"

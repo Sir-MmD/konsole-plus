@@ -643,6 +643,20 @@ void ViewManager::reconnectSession(int tabIdx)
     Q_EMIT reconnectSessionRequest(display->sessionController()->session());
 }
 
+void ViewManager::openSftp(int tabIdx)
+{
+    auto *container = qobject_cast<TabbedViewContainer *>(sender());
+    if (!container) container = _activeContainer;
+    if (!container) return;
+
+    auto *splitter = container->viewSplitterAt(tabIdx);
+    if (!splitter) return;
+    auto *display = splitter->activeTerminalDisplay();
+    if (!display || !display->sessionController()) return;
+
+    Q_EMIT openSftpRequest(display->sessionController()->session());
+}
+
 void ViewManager::semanticSetupBash()
 {
     int currentSessionId = currentSession();
@@ -1146,6 +1160,7 @@ void ViewManager::connectContainer(TabbedViewContainer *container)
     connect(container, &TabbedViewContainer::detachTab, this, &ViewManager::detachTab);
     connect(container, &TabbedViewContainer::duplicateSession, this, &ViewManager::duplicateSession);
     connect(container, &TabbedViewContainer::reconnectSession, this, &ViewManager::reconnectSession);
+    connect(container, &TabbedViewContainer::openSftp, this, &ViewManager::openSftp);
     connect(container, &TabbedViewContainer::tabContextMenuAboutToShow, this, [this, container](int tabIdx) {
         auto *splitter = container->viewSplitterAt(tabIdx);
         if (splitter) {

@@ -144,6 +144,14 @@ TabbedViewContainer::TabbedViewContainer(ViewManager *connectedViewManager, QWid
         });
     _reconnectSessionAction->setObjectName(QStringLiteral("reconnect-session"));
 
+    _openSftpAction =
+        _contextPopupMenu->addAction(QIcon::fromTheme(QStringLiteral("folder-remote")), i18nc("@action:inmenu", "Open &SFTP"), this, [this] {
+            Q_EMIT openSftp(_contextMenuTabIndex);
+        });
+    _openSftpAction->setObjectName(QStringLiteral("open-sftp"));
+
+    _contextPopupMenu->addSeparator();
+
     _lockTabAction = _contextPopupMenu->addAction(QIcon::fromTheme(QStringLiteral("object-locked")), i18nc("@action:inmenu", "&Lock Tab"), this, [this] {
         auto *splitter = viewSplitterAt(_contextMenuTabIndex);
         if (!splitter) {
@@ -718,6 +726,7 @@ void TabbedViewContainer::openTabContextMenu(const QPoint &point)
     // Default to disabled; listeners update via setDuplicateSessionEnabled/setReconnectSessionEnabled
     _duplicateSessionAction->setEnabled(false);
     _reconnectSessionAction->setEnabled(false);
+    _openSftpAction->setEnabled(false);
 
     // Update lock tab checkmark
     auto *splitter = viewSplitterAt(_contextMenuTabIndex);
@@ -1036,6 +1045,11 @@ void TabbedViewContainer::setDuplicateSessionEnabled(bool enabled)
 void TabbedViewContainer::setReconnectSessionEnabled(bool enabled)
 {
     _reconnectSessionAction->setEnabled(enabled);
+}
+
+void TabbedViewContainer::setOpenSftpEnabled(bool enabled)
+{
+    _openSftpAction->setEnabled(enabled);
 }
 
 void TabbedViewContainer::moveToNewTab(TerminalDisplay *display)

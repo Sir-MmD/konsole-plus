@@ -24,6 +24,16 @@ namespace Konsole
 class MainWindow;
 class Session;
 
+struct SshSessionData {
+    bool valid = false;
+    QString host;
+    QString port;
+    QString username;
+    QString password;
+    QString sshKey;
+    QString sshKeyPassphrase;
+};
+
 class KONSOLEAPP_EXPORT IKonsolePlugin : public QObject
 {
     Q_OBJECT
@@ -71,6 +81,34 @@ public:
 
     /** Reconnect the session in the same tab (terminate active SSH first if needed). */
     virtual void reconnectSession(Konsole::Session *session, Konsole::MainWindow *mainWindow)
+    {
+        Q_UNUSED(session)
+        Q_UNUSED(mainWindow)
+    }
+
+    /** Returns SSH connection data for the given session, if this plugin manages it. */
+    virtual SshSessionData getSessionSshData(Konsole::Session *session) const
+    {
+        Q_UNUSED(session)
+        return {};
+    }
+
+    /** Called when any SSH session changes state. Plugins can override to react. */
+    virtual void onSshStateChanged(Konsole::Session *session, int state)
+    {
+        Q_UNUSED(session)
+        Q_UNUSED(state)
+    }
+
+    /** Returns true if this plugin can open an SFTP browser for the given session. */
+    virtual bool canOpenSftp(Konsole::Session *session) const
+    {
+        Q_UNUSED(session)
+        return false;
+    }
+
+    /** Open the SFTP browser for the given session. */
+    virtual void openSftp(Konsole::Session *session, Konsole::MainWindow *mainWindow)
     {
         Q_UNUSED(session)
         Q_UNUSED(mainWindow)
