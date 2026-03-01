@@ -90,9 +90,9 @@ struct SSHManagerPluginPrivate {
     // Track per-session SSH state so we know if reconnect is possible.
     QHash<Konsole::Session*, int> sessionSshState;
 
-    // SFTP proxy tunnels: local port and control socket per session for cleanup.
+    // SFTP proxy tunnels: running QProcess and local port per session for cleanup.
+    QHash<Konsole::Session *, QProcess *> sftpTunnelProcesses;
     QHash<Konsole::Session *, int> sftpTunnelPorts;
-    QHash<Konsole::Session *, QString> sftpTunnelControlPaths;
 };
 
 SSHManagerPlugin::SSHManagerPlugin(QObject *object, const QVariantList &args)
@@ -705,116 +705,177 @@ void SSHManagerPlugin::openSftp(Konsole::Session *session, Konsole::MainWindow *
     bool needsProxy = cfg.useProxy && !cfg.proxyIp.isEmpty() && !cfg.proxyPort.isEmpty();
 
     if (!needsProxy) {
-        // Direct connection — open sftp://user:pass@host:port/path
         launchSftpUrl(cfg.host, remotePort, cfg.username, cfg.password, mainWindow);
         return;
     }
 
-    // Proxy path: tunnel through the SOCKS5 proxy via a local SSH port forward,
-    // then open SFTP to localhost:localPort.
-    // Reuse an existing tunnel if one is already active for this session.
-    if (d->sftpTunnelPorts.contains(session)) {
-        int existingPort = d->sftpTunnelPorts.value(session);
-        // Check if the tunnel is still alive (control socket exists)
-        QString ctlPath = d->sftpTunnelControlPaths.value(session);
-        if (QFile::exists(ctlPath)) {
+    // Reuse an existing tunnel if the process is still running.
+    if (d->sftpTunnelProcesses.contains(session)) {
+        auto *existing = d->sftpTunnelProcesses.value(session);
+        if (existing && existing->state() == QProcess::Running) {
+            int existingPort = d->sftpTunnelPorts.value(session);
             launchSftpUrl(QStringLiteral("localhost"), existingPort, cfg.username, cfg.password, mainWindow);
             return;
         }
-        // Tunnel died — clean up and create a new one
+        // Tunnel died — clean up
+        if (existing) {
+            existing->deleteLater();
+        }
+        d->sftpTunnelProcesses.remove(session);
         d->sftpTunnelPorts.remove(session);
-        d->sftpTunnelControlPaths.remove(session);
     }
 
     int localPort = findFreePort();
     if (localPort == 0) {
-        // Fallback: try direct connection
         launchSftpUrl(cfg.host, remotePort, cfg.username, cfg.password, mainWindow);
         return;
     }
 
-    const QString tunnelId = QUuid::createUuid().toString(QUuid::Id128);
-    const QString controlPath = QStringLiteral("/tmp/konsole_sftp_ctl_%1").arg(tunnelId);
-
-    // Build the SSH tunnel command, mirroring startConnection() auth/proxy logic.
-    QString tunnelCmd;
-    if (!cfg.password.isEmpty()) {
-        tunnelCmd = QStringLiteral("sshpass -p '%1' ").arg(cfg.password);
-    } else if (!cfg.sshKeyPassphrase.isEmpty()) {
-        tunnelCmd = QStringLiteral("sshpass -P 'passphrase' -p '%1' ").arg(cfg.sshKeyPassphrase);
-    }
-
-    tunnelCmd += QStringLiteral("ssh -f -N ");
-    tunnelCmd += QStringLiteral("-o ExitOnForwardFailure=yes ");
-    tunnelCmd += QStringLiteral("-o ControlPath='%1' -o ControlMaster=yes ").arg(controlPath);
-    tunnelCmd += QStringLiteral("-o ConnectTimeout=15 ");
-
-    if (cfg.autoAcceptKeys) {
-        tunnelCmd += QStringLiteral("-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ");
-    }
+    // Build SSH args directly (no shell quoting needed — QProcess passes
+    // each argument separately when using the QStringList overload).
+    QStringList sshArgs;
+    sshArgs << QStringLiteral("-N");
+    sshArgs << QStringLiteral("-o") << QStringLiteral("ExitOnForwardFailure=yes");
+    sshArgs << QStringLiteral("-o") << QStringLiteral("ConnectTimeout=15");
+    sshArgs << QStringLiteral("-o") << QStringLiteral("ServerAliveInterval=60");
+    // Always bypass host key checks — this is a non-interactive background
+    // process with no TTY for prompts.
+    sshArgs << QStringLiteral("-o") << QStringLiteral("StrictHostKeyChecking=no");
+    sshArgs << QStringLiteral("-o") << QStringLiteral("UserKnownHostsFile=/dev/null");
 
     // ProxyCommand: same ncat SOCKS5 command as startConnection()
     QString proxyCmd = QStringLiteral("ncat --proxy-type socks5 ");
     if (!cfg.proxyUsername.isEmpty()) {
         proxyCmd += QStringLiteral("--proxy-auth %1:%2 ").arg(cfg.proxyUsername, cfg.proxyPassword);
     }
-    proxyCmd += QStringLiteral("--proxy %1:%2 %%h %%p").arg(cfg.proxyIp, cfg.proxyPort);
-    tunnelCmd += QStringLiteral("-o ProxyCommand='%1' ").arg(proxyCmd);
+    proxyCmd += QStringLiteral("--proxy %1:%2 %h %p").arg(cfg.proxyIp, cfg.proxyPort);
+    sshArgs << QStringLiteral("-o") << QStringLiteral("ProxyCommand=%1").arg(proxyCmd);
 
     if (!cfg.sshKey.isEmpty()) {
-        tunnelCmd += QStringLiteral("-i %1 ").arg(cfg.sshKey);
+        sshArgs << QStringLiteral("-i") << cfg.sshKey;
     }
 
     // Local forward: localhost:localPort → remote's localhost:sshPort
-    tunnelCmd += QStringLiteral("-L %1:localhost:%2 ").arg(localPort).arg(remotePort);
+    sshArgs << QStringLiteral("-L") << QStringLiteral("%1:localhost:%2").arg(localPort).arg(remotePort);
 
     if (!cfg.port.isEmpty()) {
-        tunnelCmd += QStringLiteral("-p %1 ").arg(cfg.port);
+        sshArgs << QStringLiteral("-p") << cfg.port;
     }
 
+    QString destination;
     if (!cfg.username.isEmpty()) {
-        tunnelCmd += cfg.username + QLatin1Char('@');
+        destination = cfg.username + QLatin1Char('@');
     }
-    tunnelCmd += cfg.host;
+    destination += cfg.host;
+    sshArgs << destination;
 
-    // Run the tunnel setup. ssh -f backgrounds after auth + forwarding succeed,
-    // so QProcess::finished with exit 0 means the tunnel is ready.
+    // Determine the executable: sshpass wrapping ssh, or bare ssh.
+    QString program;
+    QStringList fullArgs;
+    if (!cfg.password.isEmpty()) {
+        program = QStringLiteral("sshpass");
+        fullArgs << QStringLiteral("-e") << QStringLiteral("ssh") << sshArgs;
+    } else if (!cfg.sshKeyPassphrase.isEmpty()) {
+        program = QStringLiteral("sshpass");
+        fullArgs << QStringLiteral("-P") << QStringLiteral("passphrase") << QStringLiteral("-e") << QStringLiteral("ssh") << sshArgs;
+    } else {
+        program = QStringLiteral("ssh");
+        fullArgs = sshArgs;
+    }
+
     auto *process = new QProcess(mainWindow);
-    process->start(QStringLiteral("bash"), {QStringLiteral("-c"), tunnelCmd});
 
-    // Capture values for the lambda
+    // Pass password via SSHPASS env var (avoids shell quoting issues).
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    if (!cfg.password.isEmpty()) {
+        env.insert(QStringLiteral("SSHPASS"), cfg.password);
+    } else if (!cfg.sshKeyPassphrase.isEmpty()) {
+        env.insert(QStringLiteral("SSHPASS"), cfg.sshKeyPassphrase);
+    }
+    process->setProcessEnvironment(env);
+    process->setProcessChannelMode(QProcess::MergedChannels);
+    process->start(program, fullArgs);
+
+    qDebug() << "SFTP tunnel:" << program << fullArgs;
+
+    // Capture values for the lambdas.
     QString username = cfg.username;
     QString password = cfg.password;
     QPointer<Konsole::Session> sessionPtr = session;
+    QPointer<QProcess> processPtr = process;
 
-    connect(process, &QProcess::finished, mainWindow, [this, process, sessionPtr, localPort, controlPath, username, password, mainWindow](int exitCode) {
-        process->deleteLater();
-        if (exitCode != 0) {
-            qWarning() << "SFTP proxy tunnel failed (exit code" << exitCode << ")";
+    // ssh -N stays in the foreground.  We poll the local port to detect
+    // when the tunnel is ready, rather than relying on ssh -f + fork.
+    auto *readyTimer = new QTimer(process);
+    readyTimer->setInterval(300);
+
+    auto *timeoutTimer = new QTimer(process);
+    timeoutTimer->setSingleShot(true);
+    timeoutTimer->setInterval(15000);
+
+    connect(readyTimer, &QTimer::timeout, mainWindow, [=, this]() {
+        // Try connecting to the local forwarded port.
+        int sock = socket(AF_INET, SOCK_STREAM, 0);
+        if (sock < 0) {
             return;
         }
-        // Store tunnel info for reuse and cleanup
+        struct sockaddr_in addr = {};
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        addr.sin_port = htons(static_cast<uint16_t>(localPort));
+        bool connected = (::connect(sock, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) == 0);
+        ::close(sock);
+
+        if (!connected) {
+            return;
+        }
+        // Tunnel is ready.
+        readyTimer->stop();
+        timeoutTimer->stop();
         if (sessionPtr) {
+            d->sftpTunnelProcesses[sessionPtr] = processPtr;
             d->sftpTunnelPorts[sessionPtr] = localPort;
-            d->sftpTunnelControlPaths[sessionPtr] = controlPath;
         }
         launchSftpUrl(QStringLiteral("localhost"), localPort, username, password, mainWindow);
     });
 
-    // Clean up the tunnel when the session ends
-    connect(session, &Konsole::Session::finished, this, [this, sessionPtr, controlPath]() {
+    connect(timeoutTimer, &QTimer::timeout, mainWindow, [=]() {
+        readyTimer->stop();
+        if (processPtr && processPtr->state() != QProcess::NotRunning) {
+            processPtr->kill();
+        }
+        KMessageBox::error(mainWindow, i18n("Timed out creating SFTP tunnel through proxy."), i18n("SFTP Error"));
+    });
+
+    // If ssh exits before the tunnel is ready, it failed.
+    connect(process, &QProcess::finished, mainWindow, [=, this](int exitCode) {
+        if (readyTimer->isActive()) {
+            readyTimer->stop();
+            timeoutTimer->stop();
+            QString output = QString::fromUtf8(process->readAll()).trimmed();
+            qWarning() << "SFTP proxy tunnel exited early (code" << exitCode << ")" << output;
+            KMessageBox::error(mainWindow, i18n("Failed to create SFTP tunnel through proxy (exit code %1).\n\n%2", exitCode, output), i18n("SFTP Error"));
+        }
+        process->deleteLater();
+        if (sessionPtr) {
+            d->sftpTunnelProcesses.remove(sessionPtr);
+            d->sftpTunnelPorts.remove(sessionPtr);
+        }
+    });
+
+    readyTimer->start();
+    timeoutTimer->start();
+
+    // Clean up the tunnel when the session ends.
+    connect(session, &Konsole::Session::finished, this, [this, sessionPtr]() {
         if (!sessionPtr) {
             return;
         }
+        auto *proc = d->sftpTunnelProcesses.take(sessionPtr);
         d->sftpTunnelPorts.remove(sessionPtr);
-        d->sftpTunnelControlPaths.remove(sessionPtr);
-        // Tear down the SSH tunnel via its control socket
-        QProcess::startDetached(QStringLiteral("ssh"),
-                                {QStringLiteral("-o"),
-                                 QStringLiteral("ControlPath=%1").arg(controlPath),
-                                 QStringLiteral("-O"),
-                                 QStringLiteral("exit"),
-                                 QStringLiteral("localhost")});
+        if (proc && proc->state() != QProcess::NotRunning) {
+            proc->terminate();
+        }
     });
 }
 
