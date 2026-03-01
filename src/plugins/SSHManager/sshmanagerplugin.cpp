@@ -47,7 +47,33 @@
 #include <KIO/OpenUrlJob>
 #include <KPasswdServerClient>
 
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
 K_PLUGIN_CLASS_WITH_JSON(SSHManagerPlugin, "konsole_sshmanager.json")
+
+// Find a free local TCP port by binding to port 0 and letting the OS assign one.
+static int findFreePort()
+{
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        return 0;
+    }
+    struct sockaddr_in addr = {};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = 0;
+    if (bind(sock, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) < 0) {
+        ::close(sock);
+        return 0;
+    }
+    socklen_t len = sizeof(addr);
+    getsockname(sock, reinterpret_cast<struct sockaddr *>(&addr), &len);
+    int port = ntohs(addr.sin_port);
+    ::close(sock);
+    return port;
+}
 
 struct SSHManagerPluginPrivate {
     SSHManagerModel model;
@@ -55,7 +81,7 @@ struct SSHManagerPluginPrivate {
     QMap<Konsole::MainWindow *, SSHManagerTreeWidget *> widgetForWindow;
     QMap<Konsole::MainWindow *, QDockWidget *> dockForWindow;
     QAction *showQuickAccess = nullptr;
-    
+
     QPointer<Konsole::MainWindow> currentMainWindow;
 
     // Track which sessions were connected via the SSH Manager, so we can duplicate them.
@@ -63,6 +89,10 @@ struct SSHManagerPluginPrivate {
 
     // Track per-session SSH state so we know if reconnect is possible.
     QHash<Konsole::Session*, int> sessionSshState;
+
+    // SFTP proxy tunnels: local port and control socket per session for cleanup.
+    QHash<Konsole::Session *, int> sftpTunnelPorts;
+    QHash<Konsole::Session *, QString> sftpTunnelControlPaths;
 };
 
 SSHManagerPlugin::SSHManagerPlugin(QObject *object, const QVariantList &args)
@@ -625,6 +655,40 @@ bool SSHManagerPlugin::canOpenSftp(Konsole::Session *session) const
     return d->activeSessionData.contains(session);
 }
 
+// Helper: build and open the sftp:// URL in the default file manager.
+static void launchSftpUrl(const QString &host, int port, const QString &username, const QString &password, Konsole::MainWindow *mainWindow)
+{
+    QUrl sftpUrl;
+    sftpUrl.setScheme(QStringLiteral("sftp"));
+    sftpUrl.setHost(host);
+    sftpUrl.setPort(port);
+    sftpUrl.setUserName(username);
+    if (!password.isEmpty()) {
+        sftpUrl.setPassword(password);
+    }
+    if (username == QLatin1String("root")) {
+        sftpUrl.setPath(QStringLiteral("/root"));
+    } else {
+        sftpUrl.setPath(QStringLiteral("/home/") + username);
+    }
+
+    // Pre-cache via KPasswdServer as backup
+    if (!password.isEmpty()) {
+        KIO::AuthInfo authInfo;
+        authInfo.url = sftpUrl;
+        authInfo.username = username;
+        authInfo.password = password;
+        authInfo.keepPassword = true;
+
+        KPasswdServerClient passwdClient;
+        passwdClient.addAuthInfo(authInfo, mainWindow ? mainWindow->winId() : 0);
+    }
+
+    auto *job = new KIO::OpenUrlJob(sftpUrl);
+    job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, mainWindow));
+    job->start();
+}
+
 void SSHManagerPlugin::openSftp(Konsole::Session *session, Konsole::MainWindow *mainWindow)
 {
     if (!session) {
@@ -637,39 +701,121 @@ void SSHManagerPlugin::openSftp(Konsole::Session *session, Konsole::MainWindow *
     }
     const auto &cfg = it.value();
 
-    int port = cfg.port.isEmpty() ? 22 : cfg.port.toInt();
+    int remotePort = cfg.port.isEmpty() ? 22 : cfg.port.toInt();
+    bool needsProxy = cfg.useProxy && !cfg.proxyIp.isEmpty() && !cfg.proxyPort.isEmpty();
 
-    // Build sftp:// URL with password embedded so KIO doesn't prompt
-    QUrl sftpUrl;
-    sftpUrl.setScheme(QStringLiteral("sftp"));
-    sftpUrl.setHost(cfg.host);
-    sftpUrl.setPort(port);
-    sftpUrl.setUserName(cfg.username);
+    if (!needsProxy) {
+        // Direct connection — open sftp://user:pass@host:port/path
+        launchSftpUrl(cfg.host, remotePort, cfg.username, cfg.password, mainWindow);
+        return;
+    }
+
+    // Proxy path: tunnel through the SOCKS5 proxy via a local SSH port forward,
+    // then open SFTP to localhost:localPort.
+    // Reuse an existing tunnel if one is already active for this session.
+    if (d->sftpTunnelPorts.contains(session)) {
+        int existingPort = d->sftpTunnelPorts.value(session);
+        // Check if the tunnel is still alive (control socket exists)
+        QString ctlPath = d->sftpTunnelControlPaths.value(session);
+        if (QFile::exists(ctlPath)) {
+            launchSftpUrl(QStringLiteral("localhost"), existingPort, cfg.username, cfg.password, mainWindow);
+            return;
+        }
+        // Tunnel died — clean up and create a new one
+        d->sftpTunnelPorts.remove(session);
+        d->sftpTunnelControlPaths.remove(session);
+    }
+
+    int localPort = findFreePort();
+    if (localPort == 0) {
+        // Fallback: try direct connection
+        launchSftpUrl(cfg.host, remotePort, cfg.username, cfg.password, mainWindow);
+        return;
+    }
+
+    const QString tunnelId = QUuid::createUuid().toString(QUuid::Id128);
+    const QString controlPath = QStringLiteral("/tmp/konsole_sftp_ctl_%1").arg(tunnelId);
+
+    // Build the SSH tunnel command, mirroring startConnection() auth/proxy logic.
+    QString tunnelCmd;
     if (!cfg.password.isEmpty()) {
-        sftpUrl.setPassword(cfg.password);
-    }
-    if (cfg.username == QLatin1String("root")) {
-        sftpUrl.setPath(QStringLiteral("/root"));
-    } else {
-        sftpUrl.setPath(QStringLiteral("/home/") + cfg.username);
+        tunnelCmd = QStringLiteral("sshpass -p '%1' ").arg(cfg.password);
+    } else if (!cfg.sshKeyPassphrase.isEmpty()) {
+        tunnelCmd = QStringLiteral("sshpass -P 'passphrase' -p '%1' ").arg(cfg.sshKeyPassphrase);
     }
 
-    // Also pre-cache via KPasswdServer as backup
-    if (!cfg.password.isEmpty()) {
-        KIO::AuthInfo authInfo;
-        authInfo.url = sftpUrl;
-        authInfo.username = cfg.username;
-        authInfo.password = cfg.password;
-        authInfo.keepPassword = true;
+    tunnelCmd += QStringLiteral("ssh -f -N ");
+    tunnelCmd += QStringLiteral("-o ExitOnForwardFailure=yes ");
+    tunnelCmd += QStringLiteral("-o ControlPath='%1' -o ControlMaster=yes ").arg(controlPath);
+    tunnelCmd += QStringLiteral("-o ConnectTimeout=15 ");
 
-        KPasswdServerClient passwdClient;
-        passwdClient.addAuthInfo(authInfo, mainWindow ? mainWindow->winId() : 0);
+    if (cfg.autoAcceptKeys) {
+        tunnelCmd += QStringLiteral("-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ");
     }
 
-    // Open in the default file manager (e.g. Dolphin)
-    auto *job = new KIO::OpenUrlJob(sftpUrl);
-    job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, mainWindow));
-    job->start();
+    // ProxyCommand: same ncat SOCKS5 command as startConnection()
+    QString proxyCmd = QStringLiteral("ncat --proxy-type socks5 ");
+    if (!cfg.proxyUsername.isEmpty()) {
+        proxyCmd += QStringLiteral("--proxy-auth %1:%2 ").arg(cfg.proxyUsername, cfg.proxyPassword);
+    }
+    proxyCmd += QStringLiteral("--proxy %1:%2 %%h %%p").arg(cfg.proxyIp, cfg.proxyPort);
+    tunnelCmd += QStringLiteral("-o ProxyCommand='%1' ").arg(proxyCmd);
+
+    if (!cfg.sshKey.isEmpty()) {
+        tunnelCmd += QStringLiteral("-i %1 ").arg(cfg.sshKey);
+    }
+
+    // Local forward: localhost:localPort → remote's localhost:sshPort
+    tunnelCmd += QStringLiteral("-L %1:localhost:%2 ").arg(localPort).arg(remotePort);
+
+    if (!cfg.port.isEmpty()) {
+        tunnelCmd += QStringLiteral("-p %1 ").arg(cfg.port);
+    }
+
+    if (!cfg.username.isEmpty()) {
+        tunnelCmd += cfg.username + QLatin1Char('@');
+    }
+    tunnelCmd += cfg.host;
+
+    // Run the tunnel setup. ssh -f backgrounds after auth + forwarding succeed,
+    // so QProcess::finished with exit 0 means the tunnel is ready.
+    auto *process = new QProcess(mainWindow);
+    process->start(QStringLiteral("bash"), {QStringLiteral("-c"), tunnelCmd});
+
+    // Capture values for the lambda
+    QString username = cfg.username;
+    QString password = cfg.password;
+    QPointer<Konsole::Session> sessionPtr = session;
+
+    connect(process, &QProcess::finished, mainWindow, [this, process, sessionPtr, localPort, controlPath, username, password, mainWindow](int exitCode) {
+        process->deleteLater();
+        if (exitCode != 0) {
+            qWarning() << "SFTP proxy tunnel failed (exit code" << exitCode << ")";
+            return;
+        }
+        // Store tunnel info for reuse and cleanup
+        if (sessionPtr) {
+            d->sftpTunnelPorts[sessionPtr] = localPort;
+            d->sftpTunnelControlPaths[sessionPtr] = controlPath;
+        }
+        launchSftpUrl(QStringLiteral("localhost"), localPort, username, password, mainWindow);
+    });
+
+    // Clean up the tunnel when the session ends
+    connect(session, &Konsole::Session::finished, this, [this, sessionPtr, controlPath]() {
+        if (!sessionPtr) {
+            return;
+        }
+        d->sftpTunnelPorts.remove(sessionPtr);
+        d->sftpTunnelControlPaths.remove(sessionPtr);
+        // Tear down the SSH tunnel via its control socket
+        QProcess::startDetached(QStringLiteral("ssh"),
+                                {QStringLiteral("-o"),
+                                 QStringLiteral("ControlPath=%1").arg(controlPath),
+                                 QStringLiteral("-O"),
+                                 QStringLiteral("exit"),
+                                 QStringLiteral("localhost")});
+    });
 }
 
 #include "moc_sshmanagerplugin.cpp"
